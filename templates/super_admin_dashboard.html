@@ -23,6 +23,7 @@
                             <i class="ri-refresh-line"></i>
                             Refresh
                         </button>
+                        <!-- Export Dropdown -->
                         <div class="dropdown d-inline-block">
                             <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 <i class="ri-download-line"></i>
@@ -36,7 +37,7 @@
                                     <i class="ri-printer-line"></i> Print Dashboard
                                 </a></li>
                             </ul>
-                        </div>
+                        </div> 
                     </div>
                 </div>
             </div>
@@ -364,106 +365,104 @@
                     </div>
 
                     {% if recent_tickets %}
-                        <!-- Responsive Tickets Table -->
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover align-middle">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col">Ticket #</th>
-                                        <th scope="col">Title</th>
-                                        <th scope="col">User</th>
-                                        <th scope="col">Category</th>
-                                        <th scope="col">Priority</th>
-                                        <th scope="col">Status</th>
-                                        <th scope="col">Assigned To</th>
-                                        <th scope="col">Created</th>
-                                        <th scope="col">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ticket in recent_tickets %}
-                                        <tr>
-                                            <td>{{ ticket.ticket_number }}</td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div>
-                                                        <div class="fw-semibold">{{ ticket.title }}</div>
-                                                        {% if ticket.description %}
-                                                            <small class="text-muted">{{ ticket.description[:50] }}{% if ticket.description|length > 50 %}...{% endif %}</small>
-                                                        {% endif %}
-                                                    </div>
-                                                    {% if ticket.image_filename or ticket.attachments %}
-                                                        <i class="ri-attachment-line text-muted ms-2" title="Has attachments"></i>
-                                                    {% endif %}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div>
-                                                    <div class="fw-semibold">{{ ticket.user_name }}</div>
-                                                    {% if ticket.user.department %}
-                                                        <small class="text-muted">{{ ticket.user.department }}</small>
-                                                    {% endif %}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-secondary">{{ ticket.category }}</span>
-                                            </td>
-                                            <td>
-                                                {% set priority_class = {
-                                                    'Low': 'success',
-                                                    'Medium': 'warning',
-                                                    'High': 'danger',
-                                                    'Critical': 'dark'
+                        <!-- Modern Tickets Grid -->
+                        <div class="admin-tickets-grid">
+                            {% for ticket in recent_tickets %}
+                                <div class="admin-ticket-card">
+                                    <div class="ticket-card-header">
+                                        <div class="ticket-info">
+                                            <span class="ticket-number">#{{ ticket.ticket_number }}</span>
+                                            {% if ticket.image_filename or ticket.attachments %}
+                                                <i class="ri-attachment-line attachment-indicator" title="Has attachments"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="ticket-badges">
+                                            {% set status_config = {
+                                                'Open': {'class': 'status-open', 'icon': 'ri-error-warning-line'},
+                                                'In Progress': {'class': 'status-progress', 'icon': 'ri-time-line'},
+                                                'Resolved': {'class': 'status-resolved', 'icon': 'ri-check-line'},
+                                                'Closed': {'class': 'status-closed', 'icon': 'ri-check-double-line'}
+                                            } %}
+                                            <span class="status-badge-admin {{ status_config[ticket.status]['class'] }}">
+                                                <i class="{{ status_config[ticket.status]['icon'] }}"></i>
+                                                {{ ticket.status }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="ticket-card-content">
+                                        <h6 class="ticket-title-admin">{{ ticket.title }}</h6>
+                                        <p class="ticket-description-admin">{{ ticket.description[:120] }}{% if ticket.description|length > 120 %}...{% endif %}</p>
+                                        
+                                        <div class="ticket-details-grid">
+                                            <div class="detail-item">
+                                                <i class="ri-user-line"></i>
+                                                <span class="detail-label">User:</span>
+                                                <span class="detail-value">{{ ticket.user_name }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <i class="ri-calendar-line"></i>
+                                                <span class="detail-label">Created:</span>
+                                                <span class="detail-value">{{ ticket.created_at | to_ist }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <i class="ri-bookmark-line"></i>
+                                                <span class="detail-label">Category:</span>
+                                                <span class="category-badge-admin category-{{ ticket.category.lower() }}">{{ ticket.category }}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <i class="ri-flag-line"></i>
+                                                <span class="detail-label">Priority:</span>
+                                                {% set priority_config = {
+                                                    'Low': 'priority-low',
+                                                    'Medium': 'priority-medium',
+                                                    'High': 'priority-high',
+                                                    'Critical': 'priority-critical'
                                                 } %}
-                                                <span class="badge bg-{{ priority_class[ticket.priority] }}">{{ ticket.priority }}</span>
-                                            </td>
-                                            <td>
-                                                {% set status_class = {
-                                                    'Open': 'primary',
-                                                    'In Progress': 'info',
-                                                    'Resolved': 'success',
-                                                    'Closed': 'secondary'
-                                                } %}
-                                                <span class="badge bg-{{ status_class[ticket.status] }}">{{ ticket.status }}</span>
-                                            </td>
-                                            <td>
-                                                {% if ticket.assigned_to %}
-                                                    <div>
-                                                        <div class="fw-semibold">{{ ticket.assignee.full_name }}</div>
-                                                        <small class="text-muted">{{ ticket.assignee.specialization or 'General' }}</small>
-                                                    </div>
-                                                {% else %}
-                                                    <span class="text-muted">Unassigned</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <div>
-                                                    <div>{{ ticket.created_at.strftime('%m/%d/%Y') }}</div>
-                                                    <small class="text-muted">{{ ticket.created_at.strftime('%I:%M %p') }}</small>
+                                                <span class="priority-badge-admin {{ priority_config[ticket.priority] }}">{{ ticket.priority }}</span>
+                                            </div>
+                                            {% if ticket.user_ip_address %}
+                                                <div class="detail-item">
+                                                    <i class="ri-global-line"></i>
+                                                    <span class="detail-label">IP:</span>
+                                                    <code class="detail-code">{{ ticket.user_ip_address }}</code>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" 
-                                                       class="btn btn-sm btn-outline-primary" title="View Details">
-                                                        <i class="ri-eye-line"></i>
-                                                    </a>
-                                                    <a href="{{ url_for('edit_assignment', ticket_id=ticket.id) }}" 
-                                                       class="btn btn-sm btn-outline-warning" title="Edit Assignment">
-                                                        <i class="ri-user-settings-line"></i>
-                                                    </a>
-                                                    {% if ticket.status == 'Open' %}
-                                                        <a href="{{ url_for('assign_work', ticket_id=ticket.id) }}" 
-                                                           class="btn btn-sm btn-outline-success" title="Assign Ticket">
-                                                            <i class="ri-user-add-line"></i>
-                                                        </a>
-                                                    {% endif %}
+                                            {% endif %}
+                                            {% if ticket.user_system_name %}
+                                                <div class="detail-item">
+                                                    <i class="ri-computer-line"></i>
+                                                    <span class="detail-label">System:</span>
+                                                    <code class="detail-code">{{ ticket.user_system_name }}</code>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                            {% endif %}
+                                            {% if ticket.assigned_to %}
+                                                <div class="detail-item">
+                                                    <i class="ri-user-settings-line"></i>
+                                                    <span class="detail-label">Assigned to:</span>
+                                                    <span class="assigned-user">{{ ticket.assignee.full_name }}</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="ticket-card-actions">
+                                        <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="ri-eye-line"></i>
+                                            View
+                                        </a>
+                                        <a href="{{ url_for('edit_assignment', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-warning">
+                                            <i class="ri-user-settings-line"></i>
+                                            Edit
+                                        </a>
+                                        {% if ticket.status == 'Open' %}
+                                            <a href="{{ url_for('assign_work', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-success">
+                                                <i class="ri-user-add-line"></i>
+                                                Assign
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
                         </div>
                     {% else %}
                         <div class="empty-state-admin">
