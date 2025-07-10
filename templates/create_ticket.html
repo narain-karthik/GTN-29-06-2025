@@ -168,13 +168,13 @@
                                 Attachments
                                 <span class="optional-tag">Optional</span>
                             </h5>
-                            <div class="upload-area">
-                                <div class="upload-content">
+                            <div class="upload-area" id="uploadArea">
+                                <div class="upload-content" id="uploadContent">
                                     <i class="ri-upload-cloud-line upload-icon"></i>
                                     <h6>Upload multiple files to help us understand the issue</h6>
                                     <p class="text-muted">Screenshots, error messages, or related documents (Hold Ctrl/Cmd to select multiple files)</p>
                                     {{ form.image(class="form-control file-input" + (" is-invalid" if form.image.errors else ""),
-                                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx", multiple=True) }}
+                                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx", multiple=True, id="fileInput") }}
                                     {% if form.image.errors %}
                                         <div class="invalid-feedback">
                                             {% for error in form.image.errors %}{{ error }}{% endfor %}
@@ -189,7 +189,12 @@
                                 </div>
                                 <!-- Selected files display -->
                                 <div id="selectedFiles" class="selected-files mt-3" style="display: none;">
-                                    <h6 class="text-primary"><i class="ri-file-list-line"></i> Selected Files:</h6>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="text-primary mb-0"><i class="ri-file-list-line"></i> Selected Files:</h6>
+                                        <button type="button" id="clearAllFiles" class="btn btn-sm btn-outline-danger">
+                                            <i class="ri-delete-bin-line"></i> Clear All
+                                        </button>
+                                    </div>
                                     <div id="filesList" class="files-list"></div>
                                 </div>
                             </div>
@@ -664,107 +669,125 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCounter(); // Initial call
     }
 
-    // Multiple file upload enhancement
-    const fileInput = document.querySelector('.file-input');
-    const uploadArea = document.querySelector('.upload-area');
+    // Simple and reliable file upload enhancement
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const uploadContent = document.getElementById('uploadContent');
     const selectedFilesDiv = document.getElementById('selectedFiles');
     const filesList = document.getElementById('filesList');
+    const clearAllBtn = document.getElementById('clearAllFiles');
 
-    if (fileInput && uploadArea) {
-        fileInput.addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
+    function updateFileDisplay() {
+        const files = Array.from(fileInput.files);
+        
+        if (files.length > 0) {
+            // Update upload area appearance
+            const fileText = files.length === 1 ? 'File' : 'Files';
+            uploadContent.innerHTML = `
+                <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
+                <h6>${files.length} ${fileText} Selected</h6>
+                <p class="text-muted">Click here to select different files or add more</p>
+                <input type="file" class="form-control file-input" name="image" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx" multiple id="fileInput">
+            `;
+            uploadArea.style.borderColor = '#28a745';
+            uploadArea.style.background = '#f8fff8';
+
+            // Re-attach event listener
+            const newFileInput = document.getElementById('fileInput');
+            newFileInput.addEventListener('change', updateFileDisplay);
+
+            // Show selected files list
+            selectedFilesDiv.style.display = 'block';
+            filesList.innerHTML = '';
             
-            if (files.length > 0) {
-                // Update upload area appearance
-                const uploadContent = uploadArea.querySelector('.upload-content');
-                if (files.length === 1) {
-                    uploadContent.innerHTML = `
-                        <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
-                        <h6>${files.length} File Selected</h6>
-                        <p class="text-muted">Click to change or add more files</p>
-                    `;
-                } else {
-                    uploadContent.innerHTML = `
-                        <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
-                        <h6>${files.length} Files Selected</h6>
-                        <p class="text-muted">Click to change or add more files</p>
-                    `;
-                }
-                uploadArea.style.borderColor = '#28a745';
-                uploadArea.style.background = '#f8fff8';
-
-                // Show selected files list
-                selectedFilesDiv.style.display = 'block';
-                filesList.innerHTML = '';
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded';
                 
-                files.forEach((file, index) => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded';
-                    
-                    // Get file extension for icon
-                    const extension = file.name.split('.').pop().toLowerCase();
-                    let icon = 'ri-file-line';
-                    let iconColor = '#6c757d';
-                    
-                    if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
-                        icon = 'ri-image-line';
-                        iconColor = '#17a2b8';
-                    } else if (extension === 'pdf') {
-                        icon = 'ri-file-pdf-line';
-                        iconColor = '#dc3545';
-                    } else if (['doc', 'docx'].includes(extension)) {
-                        icon = 'ri-file-word-line';
-                        iconColor = '#007bff';
-                    } else if (['xls', 'xlsx'].includes(extension)) {
-                        icon = 'ri-file-excel-line';
-                        iconColor = '#28a745';
-                    }
-                    
-                    fileItem.innerHTML = `
-                        <div class="d-flex align-items-center">
-                            <i class="${icon}" style="color: ${iconColor}; font-size: 1.2rem; margin-right: 0.5rem;"></i>
-                            <div>
-                                <div class="file-name">${file.name}</div>
-                                <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
-                            </div>
+                // Get file extension for icon
+                const extension = file.name.split('.').pop().toLowerCase();
+                let icon = 'ri-file-line';
+                let iconColor = '#6c757d';
+                
+                if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
+                    icon = 'ri-image-line';
+                    iconColor = '#17a2b8';
+                } else if (extension === 'pdf') {
+                    icon = 'ri-file-pdf-line';
+                    iconColor = '#dc3545';
+                } else if (['doc', 'docx'].includes(extension)) {
+                    icon = 'ri-file-word-line';
+                    iconColor = '#007bff';
+                } else if (['xls', 'xlsx'].includes(extension)) {
+                    icon = 'ri-file-excel-line';
+                    iconColor = '#28a745';
+                }
+                
+                fileItem.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="${icon}" style="color: ${iconColor}; font-size: 1.2rem; margin-right: 0.5rem;"></i>
+                        <div>
+                            <div class="file-name">${file.name}</div>
+                            <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-file" data-index="${index}">
-                            <i class="ri-close-line"></i>
-                        </button>
-                    `;
-                    
-                    filesList.appendChild(fileItem);
-                });
-
-                // Add remove file functionality
-                document.querySelectorAll('.remove-file').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const index = parseInt(this.dataset.index);
-                        const dt = new DataTransfer();
-                        
-                        // Re-add all files except the one to remove
-                        Array.from(fileInput.files).forEach((file, i) => {
-                            if (i !== index) dt.items.add(file);
-                        });
-                        
-                        fileInput.files = dt.files;
-                        // Trigger change event to update display
-                        fileInput.dispatchEvent(new Event('change'));
-                    });
-                });
-            } else {
-                // Reset to initial state
-                const uploadContent = uploadArea.querySelector('.upload-content');
-                uploadContent.innerHTML = `
-                    <i class="ri-upload-cloud-line upload-icon"></i>
-                    <h6>Upload multiple files to help us understand the issue</h6>
-                    <p class="text-muted">Screenshots, error messages, or related documents (Hold Ctrl/Cmd to select multiple files)</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-file" data-index="${index}">
+                        <i class="ri-close-line"></i>
+                    </button>
                 `;
-                uploadArea.style.borderColor = '#dee2e6';
-                uploadArea.style.background = '';
-                selectedFilesDiv.style.display = 'none';
-            }
+                
+                filesList.appendChild(fileItem);
+            });
+
+            // Add remove file functionality
+            document.querySelectorAll('.remove-file').forEach(button => {
+                button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const index = parseInt(this.dataset.index);
+                    const dt = new DataTransfer();
+                    
+                    // Re-add all files except the one to remove
+                    Array.from(fileInput.files).forEach((file, i) => {
+                        if (i !== index) dt.items.add(file);
+                    });
+                    
+                    // Update file input
+                    const currentInput = document.getElementById('fileInput');
+                    currentInput.files = dt.files;
+                    updateFileDisplay();
+                });
+            });
+        } else {
+            // Reset to initial state
+            uploadContent.innerHTML = `
+                <i class="ri-upload-cloud-line upload-icon"></i>
+                <h6>Upload multiple files to help us understand the issue</h6>
+                <p class="text-muted">Screenshots, error messages, or related documents (Hold Ctrl/Cmd to select multiple files)</p>
+                <input type="file" class="form-control file-input" name="image" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx" multiple id="fileInput">
+            `;
+            uploadArea.style.borderColor = '#dee2e6';
+            uploadArea.style.background = '';
+            selectedFilesDiv.style.display = 'none';
+            
+            // Re-attach event listener
+            const newFileInput = document.getElementById('fileInput');
+            newFileInput.addEventListener('change', updateFileDisplay);
+        }
+    }
+
+    // Clear all files functionality
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function(event) {
+            event.preventDefault();
+            const currentInput = document.getElementById('fileInput');
+            currentInput.value = '';
+            updateFileDisplay();
         });
+    }
+
+    // Initial setup
+    if (fileInput) {
+        fileInput.addEventListener('change', updateFileDisplay);
     }
 
     // Form validation enhancement
