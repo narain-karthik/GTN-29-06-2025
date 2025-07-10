@@ -669,63 +669,63 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCounter(); // Initial call
     }
 
-    // Simple and reliable file upload enhancement
-    const fileInput = document.getElementById('fileInput');
+    // File upload enhancement with proper event delegation
     const uploadArea = document.getElementById('uploadArea');
     const uploadContent = document.getElementById('uploadContent');
     const selectedFilesDiv = document.getElementById('selectedFiles');
     const filesList = document.getElementById('filesList');
-    const clearAllBtn = document.getElementById('clearAllFiles');
+    let selectedFiles = [];
 
-    function updateFileDisplay() {
-        const files = Array.from(fileInput.files);
+    function getFileIcon(filename) {
+        const extension = filename.split('.').pop().toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
+            return { icon: 'ri-image-line', color: '#17a2b8' };
+        } else if (extension === 'pdf') {
+            return { icon: 'ri-file-pdf-line', color: '#dc3545' };
+        } else if (['doc', 'docx'].includes(extension)) {
+            return { icon: 'ri-file-word-line', color: '#007bff' };
+        } else if (['xls', 'xlsx'].includes(extension)) {
+            return { icon: 'ri-file-excel-line', color: '#28a745' };
+        }
+        return { icon: 'ri-file-line', color: '#6c757d' };
+    }
+
+    function updateFileInput() {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
         
-        if (files.length > 0) {
+        const currentInput = document.getElementById('fileInput');
+        if (currentInput) {
+            currentInput.files = dt.files;
+        }
+    }
+
+    function renderFileDisplay() {
+        if (selectedFiles.length > 0) {
             // Update upload area appearance
-            const fileText = files.length === 1 ? 'File' : 'Files';
+            const fileText = selectedFiles.length === 1 ? 'File' : 'Files';
             uploadContent.innerHTML = `
                 <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
-                <h6>${files.length} ${fileText} Selected</h6>
-                <p class="text-muted">Click here to select different files or add more</p>
+                <h6>${selectedFiles.length} ${fileText} Selected</h6>
+                <p class="text-muted">Click here to select different files</p>
                 <input type="file" class="form-control file-input" name="image" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx" multiple id="fileInput">
             `;
             uploadArea.style.borderColor = '#28a745';
             uploadArea.style.background = '#f8fff8';
 
-            // Re-attach event listener
-            const newFileInput = document.getElementById('fileInput');
-            newFileInput.addEventListener('change', updateFileDisplay);
-
             // Show selected files list
             selectedFilesDiv.style.display = 'block';
             filesList.innerHTML = '';
             
-            files.forEach((file, index) => {
+            selectedFiles.forEach((file, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded';
                 
-                // Get file extension for icon
-                const extension = file.name.split('.').pop().toLowerCase();
-                let icon = 'ri-file-line';
-                let iconColor = '#6c757d';
-                
-                if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
-                    icon = 'ri-image-line';
-                    iconColor = '#17a2b8';
-                } else if (extension === 'pdf') {
-                    icon = 'ri-file-pdf-line';
-                    iconColor = '#dc3545';
-                } else if (['doc', 'docx'].includes(extension)) {
-                    icon = 'ri-file-word-line';
-                    iconColor = '#007bff';
-                } else if (['xls', 'xlsx'].includes(extension)) {
-                    icon = 'ri-file-excel-line';
-                    iconColor = '#28a745';
-                }
+                const {icon, color} = getFileIcon(file.name);
                 
                 fileItem.innerHTML = `
                     <div class="d-flex align-items-center">
-                        <i class="${icon}" style="color: ${iconColor}; font-size: 1.2rem; margin-right: 0.5rem;"></i>
+                        <i class="${icon}" style="color: ${color}; font-size: 1.2rem; margin-right: 0.5rem;"></i>
                         <div>
                             <div class="file-name">${file.name}</div>
                             <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
@@ -739,24 +739,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 filesList.appendChild(fileItem);
             });
 
-            // Add remove file functionality
-            document.querySelectorAll('.remove-file').forEach(button => {
-                button.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    const index = parseInt(this.dataset.index);
-                    const dt = new DataTransfer();
-                    
-                    // Re-add all files except the one to remove
-                    Array.from(fileInput.files).forEach((file, i) => {
-                        if (i !== index) dt.items.add(file);
-                    });
-                    
-                    // Update file input
-                    const currentInput = document.getElementById('fileInput');
-                    currentInput.files = dt.files;
-                    updateFileDisplay();
-                });
-            });
+            updateFileInput();
         } else {
             // Reset to initial state
             uploadContent.innerHTML = `
@@ -768,27 +751,36 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadArea.style.borderColor = '#dee2e6';
             uploadArea.style.background = '';
             selectedFilesDiv.style.display = 'none';
-            
-            // Re-attach event listener
-            const newFileInput = document.getElementById('fileInput');
-            newFileInput.addEventListener('change', updateFileDisplay);
         }
     }
 
-    // Clear all files functionality
-    if (clearAllBtn) {
-        clearAllBtn.addEventListener('click', function(event) {
-            event.preventDefault();
-            const currentInput = document.getElementById('fileInput');
-            currentInput.value = '';
-            updateFileDisplay();
-        });
-    }
+    // Use event delegation for file input changes
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'fileInput') {
+            selectedFiles = Array.from(e.target.files);
+            renderFileDisplay();
+        }
+    });
 
-    // Initial setup
-    if (fileInput) {
-        fileInput.addEventListener('change', updateFileDisplay);
-    }
+    // Use event delegation for remove file buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-file')) {
+            e.preventDefault();
+            const button = e.target.closest('.remove-file');
+            const index = parseInt(button.dataset.index);
+            selectedFiles.splice(index, 1);
+            renderFileDisplay();
+        }
+    });
+
+    // Use event delegation for clear all button
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'clearAllFiles' || e.target.closest('#clearAllFiles')) {
+            e.preventDefault();
+            selectedFiles = [];
+            renderFileDisplay();
+        }
+    });
 
     // Form validation enhancement
     const form = document.getElementById('ticketForm');
