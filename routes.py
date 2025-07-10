@@ -313,7 +313,7 @@ def create_ticket():
 
         # Handle file uploads (supporting multiple attachments)
         attachment_filenames = []
-        files = request.files.getlist('attachments')
+        files = request.files.getlist('image')  # Changed from 'attachments' to 'image'
         for file in files:
             if file and file.filename and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
@@ -324,8 +324,10 @@ def create_ticket():
                 try:
                     file.save(filepath)
                     attachment_filenames.append(unique_filename)
+                    logging.info(f'Successfully uploaded file: {unique_filename}')
                 except Exception as e:
-                    flash(f'Error uploading file {filename}.', 'warning')
+                    flash(f'Error uploading file {filename}: {str(e)}', 'warning')
+                    logging.error(f'Error uploading file {filename}: {str(e)}')
 
         # For backward compatibility, store the first image filename in image_filename, others in attachments
         image_filename = None

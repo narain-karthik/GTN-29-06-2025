@@ -171,10 +171,10 @@
                             <div class="upload-area">
                                 <div class="upload-content">
                                     <i class="ri-upload-cloud-line upload-icon"></i>
-                                    <h6>Upload files to help us understand the issue</h6>
-                                    <p class="text-muted">Screenshots, error messages, or related documents</p>
+                                    <h6>Upload multiple files to help us understand the issue</h6>
+                                    <p class="text-muted">Screenshots, error messages, or related documents (Hold Ctrl/Cmd to select multiple files)</p>
                                     {{ form.image(class="form-control file-input" + (" is-invalid" if form.image.errors else ""),
-                                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx") }}
+                                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx", multiple=True) }}
                                     {% if form.image.errors %}
                                         <div class="invalid-feedback">
                                             {% for error in form.image.errors %}{{ error }}{% endfor %}
@@ -184,8 +184,13 @@
                                 <div class="upload-info">
                                     <small class="text-muted">
                                         <i class="ri-information-line"></i>
-                                        Supported formats: Images (JPG, PNG, GIF), Documents (PDF, Word, Excel) • Max size: 10MB
+                                        Supported formats: Images (JPG, PNG, GIF), Documents (PDF, Word, Excel) • Max size: 10MB per file
                                     </small>
+                                </div>
+                                <!-- Selected files display -->
+                                <div id="selectedFiles" class="selected-files mt-3" style="display: none;">
+                                    <h6 class="text-primary"><i class="ri-file-list-line"></i> Selected Files:</h6>
+                                    <div id="filesList" class="files-list"></div>
                                 </div>
                             </div>
                         </div>
@@ -431,6 +436,46 @@
     border-top: 1px solid #e9ecef;
 }
 
+.selected-files {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.files-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.file-item {
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    border-color: #007bff;
+    background: #f8f9ff !important;
+}
+
+.file-name {
+    font-weight: 500;
+    color: #2c3e50;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.remove-file {
+    transition: all 0.2s ease;
+}
+
+.remove-file:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
 .submission-info h6 {
     color: #2c3e50;
     margin-bottom: 1rem;
@@ -619,22 +664,105 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCounter(); // Initial call
     }
 
-    // File upload enhancement
+    // Multiple file upload enhancement
     const fileInput = document.querySelector('.file-input');
     const uploadArea = document.querySelector('.upload-area');
+    const selectedFilesDiv = document.getElementById('selectedFiles');
+    const filesList = document.getElementById('filesList');
 
     if (fileInput && uploadArea) {
         fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
+            const files = Array.from(e.target.files);
+            
+            if (files.length > 0) {
+                // Update upload area appearance
                 const uploadContent = uploadArea.querySelector('.upload-content');
-                uploadContent.innerHTML = `
-                    <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
-                    <h6>File Selected: ${file.name}</h6>
-                    <p class="text-muted">Click to change file</p>
-                `;
+                if (files.length === 1) {
+                    uploadContent.innerHTML = `
+                        <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
+                        <h6>${files.length} File Selected</h6>
+                        <p class="text-muted">Click to change or add more files</p>
+                    `;
+                } else {
+                    uploadContent.innerHTML = `
+                        <i class="ri-file-check-line upload-icon" style="color: #28a745;"></i>
+                        <h6>${files.length} Files Selected</h6>
+                        <p class="text-muted">Click to change or add more files</p>
+                    `;
+                }
                 uploadArea.style.borderColor = '#28a745';
                 uploadArea.style.background = '#f8fff8';
+
+                // Show selected files list
+                selectedFilesDiv.style.display = 'block';
+                filesList.innerHTML = '';
+                
+                files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded';
+                    
+                    // Get file extension for icon
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    let icon = 'ri-file-line';
+                    let iconColor = '#6c757d';
+                    
+                    if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
+                        icon = 'ri-image-line';
+                        iconColor = '#17a2b8';
+                    } else if (extension === 'pdf') {
+                        icon = 'ri-file-pdf-line';
+                        iconColor = '#dc3545';
+                    } else if (['doc', 'docx'].includes(extension)) {
+                        icon = 'ri-file-word-line';
+                        iconColor = '#007bff';
+                    } else if (['xls', 'xlsx'].includes(extension)) {
+                        icon = 'ri-file-excel-line';
+                        iconColor = '#28a745';
+                    }
+                    
+                    fileItem.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="${icon}" style="color: ${iconColor}; font-size: 1.2rem; margin-right: 0.5rem;"></i>
+                            <div>
+                                <div class="file-name">${file.name}</div>
+                                <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-file" data-index="${index}">
+                            <i class="ri-close-line"></i>
+                        </button>
+                    `;
+                    
+                    filesList.appendChild(fileItem);
+                });
+
+                // Add remove file functionality
+                document.querySelectorAll('.remove-file').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = parseInt(this.dataset.index);
+                        const dt = new DataTransfer();
+                        
+                        // Re-add all files except the one to remove
+                        Array.from(fileInput.files).forEach((file, i) => {
+                            if (i !== index) dt.items.add(file);
+                        });
+                        
+                        fileInput.files = dt.files;
+                        // Trigger change event to update display
+                        fileInput.dispatchEvent(new Event('change'));
+                    });
+                });
+            } else {
+                // Reset to initial state
+                const uploadContent = uploadArea.querySelector('.upload-content');
+                uploadContent.innerHTML = `
+                    <i class="ri-upload-cloud-line upload-icon"></i>
+                    <h6>Upload multiple files to help us understand the issue</h6>
+                    <p class="text-muted">Screenshots, error messages, or related documents (Hold Ctrl/Cmd to select multiple files)</p>
+                `;
+                uploadArea.style.borderColor = '#dee2e6';
+                uploadArea.style.background = '';
+                selectedFilesDiv.style.display = 'none';
             }
         });
     }

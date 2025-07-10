@@ -16,7 +16,7 @@ class TicketForm(FlaskForm):
     category = SelectField('Category', choices=[], validators=[DataRequired()])
     priority = SelectField('Priority', choices=[], validators=[DataRequired()])
     system_name = StringField('System Name', render_kw={'placeholder': 'Enter your computer/system name'})
-    image = FileField('Upload File (Optional)', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx'], 'Images, PDF, Word, and Excel files only!')])
+    image = FileField('Upload Files (Optional)', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx'], 'Images, PDF, Word, and Excel files only!')], render_kw={'multiple': True})
     submit = SubmitField('Create Ticket')
     
     def __init__(self, *args, **kwargs):
