@@ -22,18 +22,24 @@ db = SQLAlchemy(model_class=Base)
 def get_database_uri():
     """Get database URI - PostgreSQL primary, with SQL Server and MySQL support"""
     
-    # PostgreSQL (primary database)
+    # PostgreSQL (primary database) - use Replit provided DATABASE_URL
     postgres_url = os.environ.get("DATABASE_URL")
     if postgres_url:
         return postgres_url
 
-    # Direct PostgreSQL configuration for local development
-    return "postgresql://gtn_user:gtn_password_2024@localhost:5432/gtn_helpdesk"
+    # Fallback for local development (should not be reached in Replit)
+    return "sqlite:///fallback.db"
 
 
 # Create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET") or "dev-fallback-key-please-set-session-secret"
+# Generate a secure session secret if not provided
+session_secret = os.environ.get("SESSION_SECRET")
+if not session_secret:
+    import secrets
+    session_secret = secrets.token_hex(32)
+    logging.info("Generated temporary session secret - please set SESSION_SECRET environment variable for production")
+app.secret_key = session_secret
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure the database - PostgreSQL primary database
