@@ -4,8 +4,8 @@ from flask_login import current_user
 from werkzeug.utils import secure_filename
 from sqlalchemy import extract, and_
 from app import app, db
-from models import User, Ticket, TicketComment, Attachment
-from forms import LoginForm, TicketForm, UpdateTicketForm, CommentForm, UserRegistrationForm, AssignTicketForm, UserProfileForm
+from models import User, Ticket, TicketComment, Attachment, MasterDataCategory, MasterDataPriority, MasterDataStatus, EmailSettings, TimezoneSettings, BackupSettings, EmailNotificationLog
+from forms import LoginForm, TicketForm, UpdateTicketForm, CommentForm, UserRegistrationForm, AssignTicketForm, UserProfileForm, MasterDataCategoryForm, MasterDataPriorityForm, MasterDataStatusForm, EmailSettingsForm, TimezoneSettingsForm, BackupSettingsForm
 from datetime import datetime
 from utils.email import send_assignment_email  # Add this import
 from utils.timezone import utc_to_ist
@@ -147,15 +147,21 @@ def user_dashboard():
 @app.route('/user-profile', methods=['GET', 'POST'])
 @login_required
 def user_profile():
-    """User profile management"""
+    """User profile management - Super Admin can edit, users can only view"""
     user = get_current_user()
     form = UserProfileForm(obj=user)
     
-    if form.validate_on_submit():
+    # Only allow Super Admins to edit profiles
+    if request.method == 'POST' and not user.is_super_admin:
+        flash('You do not have permission to edit profile information.', 'error')
+        return redirect(url_for('user_profile'))
+    
+    if form.validate_on_submit() and user.is_super_admin:
         user.first_name = form.first_name.data
         user.last_name = form.last_name.data
         user.email = form.email.data
         user.department = form.department.data
+        user.specialization = form.specialization.data if form.specialization.data else None
         user.system_name = form.system_name.data
         
         # Handle profile image upload
@@ -170,7 +176,20 @@ def user_profile():
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('user_profile'))
     
-    return render_template('user_profile.html', form=form, user=user)
+    # Get user statistics for the profile
+    user_tickets = Ticket.query.filter_by(user_id=user.id).all()
+    total_tickets = len(user_tickets)
+    open_tickets = len([t for t in user_tickets if t.status == 'Open'])
+    resolved_tickets = len([t for t in user_tickets if t.status == 'Resolved'])
+    
+    user_stats = {
+        'total_tickets': total_tickets,
+        'open_tickets': open_tickets,
+        'resolved_tickets': resolved_tickets,
+        'recent_tickets': user_tickets[:5] if user_tickets else []
+    }
+    
+    return render_template('user_profile.html', form=form, user=user, user_stats=user_stats, current_user=user)
 
 @app.route('/super-admin-dashboard')
 @super_admin_required
@@ -266,18 +285,28 @@ def create_ticket():
                 current_system_name = user.system_name.strip()
             else:
                 user_agent = request.headers.get('User-Agent', '').lower()
-                if 'windows' in user_agent:
-                    current_system_name = 'Windows System'
+                timestamp = datetime.now().strftime('%m%d%H%M')
+                
+                if 'windows nt 10.0' in user_agent:
+                    current_system_name = f'WIN10-PC-{timestamp}'
+                elif 'windows nt 6.3' in user_agent:
+                    current_system_name = f'WIN8-PC-{timestamp}'
+                elif 'windows nt 6.1' in user_agent:
+                    current_system_name = f'WIN7-PC-{timestamp}'
+                elif 'windows' in user_agent:
+                    current_system_name = f'WINDOWS-PC-{timestamp}'
                 elif 'mac os x' in user_agent or 'macos' in user_agent:
-                    current_system_name = 'macOS System'
-                elif 'linux' in user_agent:
-                    current_system_name = 'Linux System'
+                    current_system_name = f'MACOS-{timestamp}'
+                elif 'linux' in user_agent and 'android' not in user_agent:
+                    current_system_name = f'LINUX-{timestamp}'
                 elif 'android' in user_agent:
-                    current_system_name = 'Android Device'
-                elif 'iphone' in user_agent or 'ipad' in user_agent:
-                    current_system_name = 'iOS Device'
+                    current_system_name = f'ANDROID-{timestamp}'
+                elif 'iphone' in user_agent:
+                    current_system_name = f'IPHONE-{timestamp}'
+                elif 'ipad' in user_agent:
+                    current_system_name = f'IPAD-{timestamp}'
                 else:
-                    current_system_name = f'Unknown System ({request.remote_addr})'
+                    current_system_name = f'DEVICE-{timestamp}'
 
         user.ip_address = current_ip
         user.system_name = current_system_name
@@ -308,8 +337,14 @@ def create_ticket():
             else:
                 other_attachments.append(fname)
 
+        # Generate ticket number
+        last_ticket = Ticket.query.order_by(Ticket.id.desc()).first()
+        next_ticket_id = (last_ticket.id + 1) if last_ticket else 1
+        ticket_number = f"GTN-{next_ticket_id:06d}"
+        
         # Create the ticket first
         ticket = Ticket(
+            ticket_number=ticket_number,
             title=form.title.data,
             description=form.description.data,
             category=form.category.data,
@@ -476,6 +511,7 @@ def edit_user(user_id):
         user.last_name = form.last_name.data
         user.email = form.email.data
         user.department = form.department.data
+        user.specialization = form.specialization.data if form.specialization.data else None
         user.system_name = form.system_name.data
         # Only update password if a new value is provided
         if form.password.data:
@@ -491,6 +527,7 @@ def edit_user(user_id):
     form.last_name.data = user.last_name
     form.email.data = user.email
     form.department.data = user.department
+    form.specialization.data = user.specialization
     form.system_name.data = user.system_name
     # Do not pre-fill password for security reasons
 
@@ -525,6 +562,7 @@ def create_user():
             first_name=form.first_name.data,
             last_name=form.last_name.data,
             department=form.department.data,
+            specialization=form.specialization.data if form.specialization.data else None,
             role=form.role.data
         )
         new_user.set_password(form.password.data)
@@ -565,12 +603,7 @@ def delete_user(user_id):
     
     user_to_delete = User.query.get_or_404(user_id)
     
-    # Prevent deletion of super admin users
-    if user_to_delete.role == 'super_admin':
-        flash('Cannot delete Super Admin users for security reasons.', 'error')
-        return redirect(url_for('manage_users'))
-    
-    # Prevent self-deletion
+    # Prevent self-deletion for safety
     if user_to_delete.id == current_user.id:
         flash('You cannot delete your own account.', 'error')
         return redirect(url_for('manage_users'))
@@ -633,7 +666,19 @@ def assign_work(ticket_id):
         db.session.commit()
         
         assignee = User.query.get(form.assigned_to.data)
-        flash(f'Work assigned to {assignee.full_name}!', 'success')
+        
+        # Send email notification to assigned user
+        from utils.email import send_assignment_email
+        try:
+            email_sent = send_assignment_email(assignee.email, ticket.ticket_number, assignee.full_name)
+            if email_sent:
+                flash(f'Work assigned to {assignee.full_name} and email notification sent!', 'success')
+            else:
+                flash(f'Work assigned to {assignee.full_name} but email notification failed.', 'warning')
+        except Exception as e:
+            logging.error(f"Error sending assignment email: {e}")
+            flash(f'Work assigned to {assignee.full_name} but email notification failed.', 'warning')
+        
         return redirect(url_for('super_admin_dashboard'))
     
     return render_template('assign_work.html', form=form, ticket=ticket, admins=admins)
@@ -728,7 +773,49 @@ def reports_dashboard():
         'status': [open_tickets, in_progress_tickets, resolved_tickets, closed_tickets]
     }
     
-    return render_template('reports_dashboard.html', stats=stats, tickets=all_tickets, chart_data=chart_data)
+    # Get recent tickets for activity timeline
+    recent_tickets = Ticket.query.order_by(Ticket.created_at.desc()).limit(10).all()
+    
+    # Get top users by ticket count
+    from sqlalchemy import func
+    top_users_query = db.session.query(
+        User.id,
+        User.username,
+        User.first_name,
+        User.last_name,
+        User.department,
+        func.count(Ticket.id).label('ticket_count')
+    ).join(Ticket, User.id == Ticket.user_id).group_by(User.id, User.username, User.first_name, User.last_name, User.department).order_by(func.count(Ticket.id).desc()).limit(8).all()
+    
+    # Convert to list of dictionaries for easier template access
+    top_users = []
+    for user_data in top_users_query:
+        top_users.append({
+            'id': user_data[0],
+            'username': user_data[1],
+            'first_name': user_data[2],
+            'last_name': user_data[3],
+            'department': user_data[4],
+            'ticket_count': user_data[5]
+        })
+    
+    return render_template('reports_dashboard.html', 
+                         stats=stats, 
+                         tickets=all_tickets, 
+                         chart_data=chart_data,
+                         recent_tickets=recent_tickets,
+                         top_users=top_users,
+                         total_tickets=total_tickets,
+                         open_tickets=open_tickets,
+                         in_progress_tickets=in_progress_tickets,
+                         resolved_tickets=resolved_tickets,
+                         closed_tickets=closed_tickets,
+                         hardware_tickets=hardware_tickets,
+                         software_tickets=software_tickets,
+                         critical_tickets=critical_tickets,
+                         high_tickets=high_tickets,
+                         medium_tickets=medium_tickets,
+                         low_tickets=low_tickets)
 
 @app.route('/edit-assignment/<int:ticket_id>', methods=['GET', 'POST'])
 @super_admin_required
@@ -749,12 +836,29 @@ def edit_assignment(ticket_id):
             assigned_to = None
             
         ticket.assigned_to = assigned_to
+        ticket.assigned_by = current_user.id
         ticket.updated_at = datetime.utcnow()
         
         try:
             db.session.commit()
             assignee_name = User.query.get(assigned_to).full_name if assigned_to else 'Unassigned'
-            flash(f'Ticket {ticket.ticket_number} has been assigned to {assignee_name}.', 'success')
+            
+            # Send email notification if assigned to someone
+            if assigned_to:
+                from utils.email import send_assignment_email
+                assignee = User.query.get(assigned_to)
+                try:
+                    email_sent = send_assignment_email(assignee.email, ticket.ticket_number, assignee.full_name)
+                    if email_sent:
+                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} and email notification sent!', 'success')
+                    else:
+                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but email notification failed.', 'warning')
+                except Exception as e:
+                    logging.error(f"Error sending assignment email: {e}")
+                    flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but email notification failed.', 'warning')
+            else:
+                flash(f'Ticket {ticket.ticket_number} has been unassigned.', 'success')
+                
             return redirect(url_for('super_admin_dashboard'))
         except Exception as e:
             db.session.rollback()
@@ -921,6 +1025,425 @@ def download_excel_report():
         logging.error(f"Error generating Excel report: {e}")
         flash('Error generating report. Please try again.', 'error')
         return redirect(url_for('reports_dashboard'))
+
+# Master Data Management Routes
+@app.route('/super_admin/master_data')
+@super_admin_required
+def master_data_dashboard():
+    """Master Data management dashboard"""
+    categories = MasterDataCategory.query.all()
+    priorities = MasterDataPriority.query.order_by(MasterDataPriority.level).all()
+    statuses = MasterDataStatus.query.all()
+    email_settings = EmailSettings.query.first()
+    timezone_settings = TimezoneSettings.query.first()
+    backup_settings = BackupSettings.query.first()
+    users = User.query.order_by(User.created_at.desc()).all()
+    users_count = User.query.count()
+    
+    # Email notification statistics
+    from models import EmailNotificationLog
+    email_sent_count = EmailNotificationLog.query.filter_by(status='sent').count()
+    email_failed_count = EmailNotificationLog.query.filter_by(status='failed').count()
+    
+    return render_template('master_data/dashboard.html',
+                         categories=categories,
+                         priorities=priorities, 
+                         statuses=statuses,
+                         email_settings=email_settings,
+                         timezone_settings=timezone_settings,
+                         backup_settings=backup_settings,
+                         users=users,
+                         users_count=users_count,
+                         email_sent_count=email_sent_count,
+                         email_failed_count=email_failed_count)
+
+
+@app.route('/super_admin/master_data/categories', methods=['GET', 'POST'])
+@super_admin_required
+def manage_categories():
+    """Manage ticket categories"""
+    form = MasterDataCategoryForm()
+    categories = MasterDataCategory.query.all()
+    
+    if form.validate_on_submit():
+        category = MasterDataCategory(
+            name=form.name.data,
+            description=form.description.data,
+            is_active=form.is_active.data
+        )
+        db.session.add(category)
+        db.session.commit()
+        flash(f'Category "{category.name}" created successfully!', 'success')
+        return redirect(url_for('manage_categories'))
+    
+    return render_template('master_data/categories.html', form=form, categories=categories)
+
+
+@app.route('/super_admin/master_data/categories/<int:category_id>/edit', methods=['GET', 'POST'])
+@super_admin_required
+def edit_category(category_id):
+    """Edit a category"""
+    category = MasterDataCategory.query.get_or_404(category_id)
+    form = MasterDataCategoryForm(obj=category)
+    
+    if form.validate_on_submit():
+        category.name = form.name.data
+        category.description = form.description.data
+        category.is_active = form.is_active.data
+        category.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Category "{category.name}" updated successfully!', 'success')
+        return redirect(url_for('manage_categories'))
+    
+    return render_template('master_data/edit_category.html', form=form, category=category)
+
+
+@app.route('/super_admin/master_data/categories/<int:category_id>/delete', methods=['POST'])
+@super_admin_required
+def delete_category(category_id):
+    """Delete a category"""
+    category = MasterDataCategory.query.get_or_404(category_id)
+    category_name = category.name
+    
+    try:
+        db.session.delete(category)
+        db.session.commit()
+        flash(f'Category "{category_name}" deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting category: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_categories'))
+
+
+@app.route('/super_admin/master_data/priorities', methods=['GET', 'POST'])
+@super_admin_required
+def manage_priorities():
+    """Manage ticket priorities"""
+    form = MasterDataPriorityForm()
+    priorities = MasterDataPriority.query.order_by(MasterDataPriority.level).all()
+    
+    if form.validate_on_submit():
+        priority = MasterDataPriority(
+            name=form.name.data,
+            description=form.description.data,
+            level=form.level.data,
+            color_code=form.color_code.data,
+            is_active=form.is_active.data
+        )
+        db.session.add(priority)
+        db.session.commit()
+        flash(f'Priority "{priority.name}" created successfully!', 'success')
+        return redirect(url_for('manage_priorities'))
+    
+    return render_template('master_data/priorities.html', form=form, priorities=priorities)
+
+
+@app.route('/super_admin/master_data/statuses', methods=['GET', 'POST'])
+@super_admin_required
+def manage_statuses():
+    """Manage ticket statuses"""
+    form = MasterDataStatusForm()
+    statuses = MasterDataStatus.query.all()
+    
+    if form.validate_on_submit():
+        status = MasterDataStatus(
+            name=form.name.data,
+            description=form.description.data,
+            color_code=form.color_code.data,
+            is_active=form.is_active.data
+        )
+        db.session.add(status)
+        db.session.commit()
+        flash(f'Status "{status.name}" created successfully!', 'success')
+        return redirect(url_for('manage_statuses'))
+    
+    return render_template('master_data/statuses.html', form=form, statuses=statuses)
+
+
+@app.route('/super_admin/master_data/priorities/<int:priority_id>/edit', methods=['GET', 'POST'])
+@super_admin_required
+def edit_priority(priority_id):
+    """Edit a priority"""
+    priority = MasterDataPriority.query.get_or_404(priority_id)
+    form = MasterDataPriorityForm(obj=priority)
+    
+    if form.validate_on_submit():
+        priority.name = form.name.data
+        priority.description = form.description.data
+        priority.level = form.level.data
+        priority.color_code = form.color_code.data
+        priority.is_active = form.is_active.data
+        priority.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Priority "{priority.name}" updated successfully!', 'success')
+        return redirect(url_for('manage_priorities'))
+    
+    return render_template('master_data/edit_priority.html', form=form, priority=priority)
+
+
+@app.route('/super_admin/master_data/priorities/<int:priority_id>/delete', methods=['POST'])
+@super_admin_required
+def delete_priority(priority_id):
+    """Delete a priority"""
+    priority = MasterDataPriority.query.get_or_404(priority_id)
+    priority_name = priority.name
+    
+    try:
+        db.session.delete(priority)
+        db.session.commit()
+        flash(f'Priority "{priority_name}" deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting priority: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_priorities'))
+
+
+@app.route('/super_admin/master_data/statuses/<int:status_id>/edit', methods=['GET', 'POST'])
+@super_admin_required
+def edit_status(status_id):
+    """Edit a status"""
+    status = MasterDataStatus.query.get_or_404(status_id)
+    form = MasterDataStatusForm(obj=status)
+    
+    if form.validate_on_submit():
+        status.name = form.name.data
+        status.description = form.description.data
+        status.color_code = form.color_code.data
+        status.is_active = form.is_active.data
+        status.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Status "{status.name}" updated successfully!', 'success')
+        return redirect(url_for('manage_statuses'))
+    
+    return render_template('master_data/edit_status.html', form=form, status=status)
+
+
+@app.route('/super_admin/master_data/statuses/<int:status_id>/delete', methods=['POST'])
+@super_admin_required
+def delete_status(status_id):
+    """Delete a status"""
+    status = MasterDataStatus.query.get_or_404(status_id)
+    status_name = status.name
+    
+    try:
+        db.session.delete(status)
+        db.session.commit()
+        flash(f'Status "{status_name}" deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting status: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_statuses'))
+
+
+
+
+
+@app.route('/super_admin/master_data/email_settings', methods=['GET', 'POST'])
+@super_admin_required
+def manage_email_settings():
+    """Manage SMTP email settings"""
+    form = EmailSettingsForm()
+    email_settings = EmailSettings.query.first()
+    
+    if form.validate_on_submit():
+        if email_settings:
+            # Update existing settings
+            email_settings.smtp_server = form.smtp_server.data
+            email_settings.smtp_port = form.smtp_port.data
+            email_settings.smtp_username = form.smtp_username.data
+            email_settings.smtp_password = form.smtp_password.data
+            email_settings.use_tls = form.use_tls.data
+            email_settings.from_email = form.from_email.data
+            email_settings.from_name = form.from_name.data
+            email_settings.is_active = form.is_active.data
+            email_settings.updated_at = datetime.utcnow()
+        else:
+            # Create new settings
+            email_settings = EmailSettings(
+                smtp_server=form.smtp_server.data,
+                smtp_port=form.smtp_port.data,
+                smtp_username=form.smtp_username.data,
+                smtp_password=form.smtp_password.data,
+                use_tls=form.use_tls.data,
+                from_email=form.from_email.data,
+                from_name=form.from_name.data,
+                is_active=form.is_active.data
+            )
+            db.session.add(email_settings)
+        
+        db.session.commit()
+        flash('Email settings saved successfully!', 'success')
+        return redirect(url_for('manage_email_settings'))
+    elif email_settings:
+        # Pre-populate form with existing data
+        form.smtp_server.data = email_settings.smtp_server
+        form.smtp_port.data = email_settings.smtp_port
+        form.smtp_username.data = email_settings.smtp_username
+        form.smtp_password.data = email_settings.smtp_password
+        form.use_tls.data = email_settings.use_tls
+        form.from_email.data = email_settings.from_email
+        form.from_name.data = email_settings.from_name
+        form.is_active.data = email_settings.is_active
+    
+    return render_template('master_data/email_settings.html', form=form, email_settings=email_settings)
+
+@app.route('/super_admin/test_email_settings', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def test_email_settings():
+    """Test email configuration by sending a test email"""
+    try:
+        current_user = get_current_user()
+        from utils.email import send_assignment_email
+        
+        # Send test email to current user
+        email_sent = send_assignment_email(
+            current_user.email, 
+            "TEST", 
+            current_user.full_name
+        )
+        
+        if email_sent:
+            flash('Test email sent successfully! Check your inbox.', 'success')
+        else:
+            flash('Test email failed to send. Check email settings and application logs.', 'error')
+            
+    except Exception as e:
+        logging.error(f"Test email error: {e}")
+        flash('Test email failed with error. Check application logs for details.', 'error')
+        
+    return redirect(url_for('manage_email_settings'))
+
+@app.route('/super_admin/master_data/timezone_settings', methods=['GET', 'POST'])
+@super_admin_required
+def manage_timezone_settings():
+    """Manage timezone settings"""
+    form = TimezoneSettingsForm()
+    timezone_settings = TimezoneSettings.query.first()
+    
+    if form.validate_on_submit():
+        if timezone_settings:
+            # Update existing settings
+            timezone_settings.timezone_name = form.timezone_name.data
+            timezone_settings.display_name = form.display_name.data
+            timezone_settings.utc_offset = form.utc_offset.data
+            timezone_settings.is_active = form.is_active.data
+            timezone_settings.updated_at = datetime.utcnow()
+        else:
+            # Create new settings
+            timezone_settings = TimezoneSettings(
+                timezone_name=form.timezone_name.data,
+                display_name=form.display_name.data,
+                utc_offset=form.utc_offset.data,
+                is_active=form.is_active.data
+            )
+            db.session.add(timezone_settings)
+        
+        db.session.commit()
+        flash('Timezone settings saved successfully!', 'success')
+        return redirect(url_for('manage_timezone_settings'))
+    elif timezone_settings:
+        # Pre-populate form with existing data
+        form.timezone_name.data = timezone_settings.timezone_name
+        form.display_name.data = timezone_settings.display_name
+        form.utc_offset.data = timezone_settings.utc_offset
+        form.is_active.data = timezone_settings.is_active
+    
+    return render_template('master_data/timezone_settings.html', form=form, timezone_settings=timezone_settings)
+
+@app.route('/super_admin/master_data/backup_settings', methods=['GET', 'POST'])
+@super_admin_required
+def manage_backup_settings():
+    """Manage backup settings"""
+    form = BackupSettingsForm()
+    backup_settings = BackupSettings.query.first()
+    
+    if form.validate_on_submit():
+        if backup_settings:
+            # Update existing settings
+            backup_settings.backup_frequency = form.backup_frequency.data
+            backup_settings.backup_time = form.backup_time.data
+            backup_settings.backup_location = form.backup_location.data
+            backup_settings.max_backups = form.max_backups.data
+            backup_settings.compress_backups = form.compress_backups.data
+            backup_settings.include_attachments = form.include_attachments.data
+            backup_settings.email_notifications = form.email_notifications.data
+            backup_settings.notification_email = form.notification_email.data
+            backup_settings.is_active = form.is_active.data
+            backup_settings.updated_at = datetime.utcnow()
+        else:
+            # Create new settings
+            backup_settings = BackupSettings(
+                backup_frequency=form.backup_frequency.data,
+                backup_time=form.backup_time.data,
+                backup_location=form.backup_location.data,
+                max_backups=form.max_backups.data,
+                compress_backups=form.compress_backups.data,
+                include_attachments=form.include_attachments.data,
+                email_notifications=form.email_notifications.data,
+                notification_email=form.notification_email.data,
+                is_active=form.is_active.data
+            )
+            db.session.add(backup_settings)
+        
+        db.session.commit()
+        flash('Backup settings saved successfully!', 'success')
+        return redirect(url_for('manage_backup_settings'))
+    elif backup_settings:
+        # Pre-populate form with existing data
+        form.backup_frequency.data = backup_settings.backup_frequency
+        form.backup_time.data = backup_settings.backup_time
+        form.backup_location.data = backup_settings.backup_location
+        form.max_backups.data = backup_settings.max_backups
+        form.compress_backups.data = backup_settings.compress_backups
+        form.include_attachments.data = backup_settings.include_attachments
+        form.email_notifications.data = backup_settings.email_notifications
+        form.notification_email.data = backup_settings.notification_email
+        form.is_active.data = backup_settings.is_active
+    
+    return render_template('master_data/backup_settings.html', form=form, backup_settings=backup_settings)
+
+@app.route('/super_admin/master_data/email_notifications')
+@super_admin_required
+def email_notifications_dashboard():
+    """Email notifications dashboard to track sent/failed emails"""
+    # Get statistics
+    total_notifications = EmailNotificationLog.query.count()
+    sent_notifications = EmailNotificationLog.query.filter_by(status='sent').count()
+    failed_notifications = EmailNotificationLog.query.filter_by(status='failed').count()
+    
+    # Get recent notifications (last 50)
+    recent_notifications = EmailNotificationLog.query.order_by(EmailNotificationLog.created_at.desc()).limit(50).all()
+    
+    # Get filter parameters
+    status_filter = request.args.get('status', 'all')
+    message_type_filter = request.args.get('message_type', 'all')
+    
+    # Build filtered query
+    query = EmailNotificationLog.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    if message_type_filter != 'all':
+        query = query.filter_by(message_type=message_type_filter)
+    
+    filtered_notifications = query.order_by(EmailNotificationLog.created_at.desc()).limit(100).all()
+    
+    stats = {
+        'total_notifications': total_notifications,
+        'sent_notifications': sent_notifications,
+        'failed_notifications': failed_notifications,
+        'success_rate': round((sent_notifications / total_notifications * 100) if total_notifications > 0 else 0, 1)
+    }
+    
+    return render_template('master_data/email_notifications.html', 
+                         stats=stats, 
+                         notifications=filtered_notifications,
+                         status_filter=status_filter,
+                         message_type_filter=message_type_filter)
+
 
 # Initialize default admin on first import
 with app.app_context():

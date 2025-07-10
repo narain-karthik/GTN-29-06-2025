@@ -102,6 +102,107 @@ The GTN Engineering IT Helpdesk System is a comprehensive Flask-based web applic
 
 ## Changelog
 
+- June 29, 2025: Implemented lite UI/UX design improvements:
+  - Updated user profile page with clean white background and black text instead of gradient background
+  - Created compact, medium-sized profile layout with optimized spacing and smaller elements
+  - Made profile header more compact with smaller avatar, reduced padding, and condensed text sizes
+  - Optimized form sections with reduced margins, smaller fonts, and better vertical spacing
+  - Removed Quick Actions section from user profile to create cleaner, more focused layout
+  - Replaced Security Settings section with informational card directing users to contact IT Team for password changes
+  - Optimized form field spacing throughout user profile with reduced margins and padding for compact layout
+  - Reduced Super Admin dashboard banner size with smaller padding, font sizes, and icon for more compact appearance
+  - Fixed Recent Activity panel icon positioning issue - icons now properly contained within panel borders
+  - Applied colored gradient backgrounds to Quick Actions cards (green, orange, purple, blue) matching New Ticket design
+  - Changed homepage text colors to black for "Trusted IT Support" and "Professional IT Helpdesk" headings for better readability
+  - Fixed search bar overflow in "My Support Tickets" section by implementing proper flexbox layout and responsive design
+  - Reduced banner header size with smaller padding, font sizes, and margins for more compact appearance
+  - Added proper CSS for section headers to prevent content overflow on mobile devices
+- June 29, 2025: Updated all README files to reflect current system architecture:
+  - Removed all Admin role references from README.md, README_Database_Schema.md, and README_Master_Data.md
+  - Updated database schema documentation to include ticket_number field and specialization field
+  - Added complete Master Data tables documentation (categories, priorities, statuses, email settings, etc.)
+  - Updated project structure in README.md to reflect current file organization
+  - Cleaned up unwanted file references and corrected role descriptions throughout documentation
+- June 29, 2025: Applied lite design to "My Support Tickets" section in user dashboard:
+  - Created clean, minimalist ticket cards with circular status icons matching reference image
+  - Implemented horizontal card layout with color-coded status indicators (red, orange, green, gray)
+  - Condensed ticket information with small tags and meta data for streamlined appearance
+  - Reduced visual clutter with lighter borders, subtle shadows, and essential information only
+- June 29, 2025: Simplified homepage layout for compact viewing without scrolling:
+  - Removed extensive sections (features, user roles, call-to-action) from index.html
+  - Created compact single-section design with header, professional content, and footer
+  - Changed layout to centered single column with 60vh height for no-scroll experience
+  - Maintained professional branding with "Professional IT Helpdesk Solutions" tagline
+  - Kept essential "Access Helpdesk" button for user login functionality
+- June 29, 2025: Completed user interface fixes and access control improvements:
+  - Fixed 500 error in reports dashboard by restructuring SQLAlchemy query to return dictionary format
+  - Removed specialization field from user profile template as requested
+  - Enhanced logo visibility with improved CSS (increased container size, added overflow handling, better image scaling)
+  - Implemented read-only user profiles for regular users - only Super Admins can edit profile information
+  - Added permission checks and disabled form fields with appropriate user feedback messages
+  - All user-reported issues successfully resolved
+- June 29, 2025: Removed Super Admin deletion restriction - Super Admins can now delete other Super Admin accounts (only self-deletion is still prevented for safety)
+- June 29, 2025: Added specialization field to User model allowing selection between Hardware and Software support expertise
+- June 29, 2025: Fixed email notification tracking to properly handle ticket ID extraction from GTN-000001 format for database logging
+- June 29, 2025: Fixed critical database constraint violation in ticket creation by adding missing ticket_number column to tickets table with proper NOT NULL and UNIQUE constraints, updated ticket creation logic to generate GTN-000001 format numbers automatically
+- June 29, 2025: Completed project cleanup and documentation verification - removed unwanted files (__pycache__, attached_assets), updated README_Database_Schema.md with EmailNotificationLog table, created comprehensive .gitignore file, verified all README files are current and accurate
+- June 29, 2025: Created comprehensive Windows Server IIS deployment guide (README_IIS_Windows_Server_Deployment.md) with professional setup instructions, security configuration, performance optimization, and maintenance procedures
+- June 29, 2025: Cleaned up README.md by removing outdated sections (Recent Updates, Quick Start Replit Environment, User Guide, Recent Updates & Changelog) and simplified User Roles & Permissions table to only show User and Super Admin roles
+- June 29, 2025: Fixed search bar sizing issue in "My Support Tickets" section by adding proper width constraints, button sizing, and responsive flexbox layout
+- June 29, 2025: Fixed homepage layout to prevent scrolling and center content properly by adjusting CSS viewport calculations and removing min-height constraints from hero sections
+- June 29, 2025: Successfully completed migration from Replit Agent to standard Replit environment with enhanced functionality and fixed email settings template:
+  - Resolved 500 error in email settings page by fixing CSRF token handling in templates/master_data/email_settings.html
+  - Changed test email functionality from POST form to GET link to avoid CSRF complications
+  - Updated test_email_settings route to handle both GET and POST methods
+- June 29, 2025: Successfully completed migration from Replit Agent to standard Replit environment with enhanced functionality:
+  - Fixed PostgreSQL database connection and automatic provisioning
+  - Created uploads directory to resolve 500 errors during ticket creation
+  - Configured secure session management with SESSION_SECRET environment variable
+  - Implemented automatic default master data creation on startup (Categories: 2, Priorities: 4, Statuses: 4)
+  - Added Email Notification tracking dashboard with sent/failed statistics
+  - Enhanced user profile UI with modern design matching provided reference
+  - Fixed email notifications route 500 error with correct URL references
+  - Verified all database tables are properly created and functional
+  - Application running successfully on port 5000 with Gunicorn WSGI server
+- June 29, 2025: Completed Master Data integration with full CRUD functionality and dynamic email configuration:
+  - Fixed Master Data forms to dynamically load categories, priorities, and statuses from database instead of hardcoded values
+  - Enhanced utils/email.py to read SMTP settings from Master Data database with fallback protection
+  - Added complete delete functionality for all Master Data components with confirmation dialogs
+  - Created edit_priority.html and edit_status.html templates with professional UI and color picker support
+  - Updated priorities.html, statuses.html, and categories.html to include Edit, Activate/Deactivate, and Delete action buttons
+  - Added delete routes in routes.py for categories, priorities, and statuses with proper error handling
+  - Updated Master Data dashboard to show individual overview cards for Email Settings, Timezone Settings, and Backup Settings
+  - Added JavaScript confirmDelete function with CSRF protection for secure deletion operations
+  - Master Data system now provides complete control over application behavior with real-time updates
+- June 29, 2025: Removed Department functionality from Master Data management system:
+  - Deleted MasterDataDepartment model and database table
+  - Removed MasterDataDepartmentForm from forms.py
+  - Deleted manage_departments route and templates/master_data/departments.html
+  - Updated Master Data dashboard to remove Department section and overview card
+  - System now only manages Categories, Priorities, Statuses, and System Settings
+- June 29, 2025: Successfully completed migration from Replit Agent to standard Replit environment:
+  - Set up PostgreSQL database with automatic provisioning
+  - Configured secure session management with SESSION_SECRET environment variable
+  - Fixed Master Data Management system with missing template files
+  - Created timezone_settings.html and backup_settings.html templates
+  - Verified all database models and routes are working properly
+  - Application running successfully on port 5000 with Gunicorn WSGI server
+- June 29, 2025: Added comprehensive Master Data Management system for Super Admins:
+  - Created centralized Master Data dashboard for controlling all system configuration
+  - Added management interfaces for Categories, Priorities, Statuses, Departments, and System Settings
+  - Integrated User Management into Master Data dashboard with user overview section
+  - Implemented full CRUD operations with proper validation and forms
+  - Added Master Data navigation link in Super Admin menu
+  - Created database models for master data with proper relationships and timestamps
+  - Designed professional UI with overview cards, data tables, and management forms
+  - Color picker support for priorities and statuses with visual indicators
+- June 29, 2025: Enhanced UI/UX for five key pages with modern design, interactive elements, and improved user experience:
+  - Create Ticket: Progress indicators, drag-drop file upload, character counters, form validation
+  - User Profile: Professional layout with avatar, stats sidebar, password strength indicators
+  - Create User: Role permissions overview, password requirements, real-time validation
+  - Manage Users: Advanced table with search, sorting, filtering, user stats overview
+  - Reports Dashboard: Interactive charts, metrics cards, activity timeline, export functionality
+- June 29, 2025: Successfully completed migration from Replit Agent to standard Replit environment with PostgreSQL database, secure session management, and full functionality
 - June 28, 2025: Completed comprehensive documentation update with database schema, PostgreSQL setup guide, and updated README files
 - June 28, 2025: Created modern UI/UX login page with split-screen design, floating labels, animated backgrounds, and role indicators
 - June 28, 2025: Added comprehensive .gitignore file covering Python, Flask, database files, IDE files, and security-sensitive content

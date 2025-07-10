@@ -4,7 +4,7 @@ Comprehensive documentation for the GTN Engineering IT Helpdesk System database 
 
 ## Overview
 
-The system uses a modern relational database architecture with four core tables supporting user management, ticket lifecycle, collaborative comments, and file attachments. Designed for PostgreSQL primary deployment with IST timezone support and optimized for Replit environment.
+The system uses a modern relational database architecture with eleven core tables supporting user management, ticket lifecycle, collaborative comments, file attachments, comprehensive master data management, and email notification logging. Designed for PostgreSQL primary deployment with IST timezone support and optimized for Replit environment.
 
 ## Database Architecture
 
@@ -30,6 +30,7 @@ CREATE TABLE users (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     department VARCHAR(100),
+    specialization VARCHAR(50), -- Hardware or Software support
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     ip_address VARCHAR(45),
     system_name VARCHAR(100),
@@ -46,6 +47,7 @@ CREATE TABLE users (
 - `first_name`, `last_name`: Required name fields (2-50 chars each)
 - `department`: Optional organizational unit (max 100 chars)
 - `role`: Simplified roles (`user` or `super_admin`)
+- `specialization`: Support expertise (`Hardware` or `Software`)
 - `ip_address`: IPv4/IPv6 tracking (45 chars for IPv6)
 - `system_name`: Computer/device identifier
 - `profile_image`: Optional image filename
@@ -66,6 +68,7 @@ Complete ticket lifecycle management with assignment tracking.
 ```sql
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
+    ticket_number VARCHAR(20) UNIQUE NOT NULL, -- GTN-000001 format
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     category VARCHAR(50) NOT NULL,
@@ -85,7 +88,8 @@ CREATE TABLE tickets (
 ```
 
 **Field Specifications:**
-- `id`: Auto-incrementing ticket number
+- `id`: Auto-incrementing primary key
+- `ticket_number`: Unique ticket identifier in GTN-000001 format (required)
 - `title`: Brief issue summary (5-200 chars)
 - `description`: Detailed problem description (min 10 chars)
 - `category`: Issue type (`Hardware`, `Software`)
@@ -104,6 +108,7 @@ CREATE TABLE tickets (
 
 **Indexes & Constraints:**
 ```sql
+CREATE UNIQUE INDEX idx_tickets_ticket_number ON tickets(ticket_number);
 CREATE INDEX idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to);
 CREATE INDEX idx_tickets_assigned_by ON tickets(assigned_by);
@@ -196,6 +201,166 @@ tickets(id) ←→ ticket_comments(ticket_id) [1:Many]
 
 -- Tickets can have multiple attachments
 tickets(id) ←→ attachments(ticket_id) [1:Many]
+```
+
+## Master Data Tables
+
+### 5. Master Data Categories (`master_categories`)
+
+Configurable ticket categories for system administrators.
+
+```sql
+CREATE TABLE master_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Default Data:**
+- Hardware: Hardware-related issues and requests
+- Software: Software-related issues and applications
+
+### 6. Master Data Priorities (`master_priorities`)
+
+Configurable priority levels with color coding and escalation levels.
+
+```sql
+CREATE TABLE master_priorities (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    level INTEGER NOT NULL,
+    color_code VARCHAR(7),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Default Data:**
+- Low (Level 1): #28a745 - Low priority issues, can be addressed within a week
+- Medium (Level 2): #ffc107 - Medium priority issues, should be addressed within 2-3 days
+- High (Level 3): #fd7e14 - High priority issues, should be addressed within 24 hours
+- Critical (Level 4): #dc3545 - Critical priority issues, requires immediate attention
+
+### 7. Master Data Statuses (`master_statuses`)
+
+Configurable ticket statuses with color coding for workflow management.
+
+```sql
+CREATE TABLE master_statuses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    color_code VARCHAR(7),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Default Data:**
+- Open: #6c757d - Newly created ticket awaiting assignment
+- In Progress: #007bff - Ticket is being actively worked on
+- Resolved: #28a745 - Issue has been resolved and awaits user confirmation
+- Closed: #343a40 - Ticket has been completed and closed
+
+### 8. Email Settings (`email_settings`)
+
+SMTP configuration for automated email notifications.
+
+```sql
+CREATE TABLE email_settings (
+    id SERIAL PRIMARY KEY,
+    smtp_server VARCHAR(100) NOT NULL DEFAULT 'smtp.gmail.com',
+    smtp_port INTEGER NOT NULL DEFAULT 587,
+    smtp_username VARCHAR(100) NOT NULL,
+    smtp_password VARCHAR(200) NOT NULL,
+    use_tls BOOLEAN DEFAULT TRUE,
+    from_email VARCHAR(100),
+    from_name VARCHAR(100) DEFAULT 'GTN IT Helpdesk',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 9. Timezone Settings (`timezone_settings`)
+
+System-wide timezone configuration for consistent time display.
+
+```sql
+CREATE TABLE timezone_settings (
+    id SERIAL PRIMARY KEY,
+    timezone_name VARCHAR(50) NOT NULL DEFAULT 'Asia/Kolkata',
+    display_name VARCHAR(100) NOT NULL DEFAULT 'Indian Standard Time (IST)',
+    utc_offset VARCHAR(10) NOT NULL DEFAULT '+05:30',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 10. Backup Settings (`backup_settings`)
+
+Database backup configuration and scheduling management.
+
+```sql
+CREATE TABLE backup_settings (
+    id SERIAL PRIMARY KEY,
+    backup_frequency VARCHAR(20) NOT NULL DEFAULT 'daily',
+    backup_time TIME NOT NULL DEFAULT '02:00:00',
+    backup_location VARCHAR(200) DEFAULT '/backups',
+    max_backups INTEGER NOT NULL DEFAULT 30,
+    compress_backups BOOLEAN DEFAULT TRUE,
+    include_attachments BOOLEAN DEFAULT TRUE,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    notification_email VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 11. Email Notification Log (`email_notification_logs`)
+
+Tracking and logging of email notifications sent by the system.
+
+```sql
+CREATE TABLE email_notification_logs (
+    id SERIAL PRIMARY KEY,
+    to_email VARCHAR(100) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    message_type VARCHAR(50) NOT NULL, -- 'ticket_created', 'ticket_assigned', 'ticket_updated'
+    status VARCHAR(20) NOT NULL, -- 'sent', 'failed'
+    error_message TEXT,
+    ticket_id INTEGER REFERENCES tickets(id),
+    user_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Field Specifications:**
+- `id`: Auto-incrementing log entry identifier
+- `to_email`: Recipient email address
+- `subject`: Email subject line
+- `message_type`: Type of notification (`ticket_created`, `ticket_assigned`, `ticket_updated`)
+- `status`: Email delivery status (`sent`, `failed`)
+- `error_message`: Error details for failed emails
+- `ticket_id`: Reference to related ticket (optional)
+- `user_id`: Reference to related user (optional)
+- `created_at`: Log entry timestamp (UTC)
+
+**Indexes & Constraints:**
+```sql
+CREATE INDEX idx_email_logs_status ON email_notification_logs(status);
+CREATE INDEX idx_email_logs_ticket_id ON email_notification_logs(ticket_id);
+CREATE INDEX idx_email_logs_user_id ON email_notification_logs(user_id);
+CREATE INDEX idx_email_logs_created_at ON email_notification_logs(created_at);
 ```
 
 ## Data Validation & Constraints
