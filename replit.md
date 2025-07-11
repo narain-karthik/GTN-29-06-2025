@@ -102,12 +102,12 @@ The GTN Engineering IT Helpdesk System is a comprehensive Flask-based web applic
 
 ## Changelog
 
-- July 11, 2025: Cleaned up project by removing unwanted files and fixing Excel export functionality:
-  - Removed cache files (__pycache__ directories), temporary files, and test attachments
-  - Removed attached_assets directory with Excel template files
-  - Fixed Excel export to generate clean reports without external template dependencies
-  - Updated Excel generation to create professional reports with proper headers and formatting
-  - Removed hardcoded email fallback values to ensure proper Master Data configuration
+- July 11, 2025: Restored GTN Engineering Excel template functionality:
+  - Restored Excel export to use original GTN Engineering template format (R05 - USER COMPLAINT REGISTER)
+  - Preserved all original template text, headers, and formatting structure
+  - Mapped helpdesk ticket data to correct template columns without changing template content
+  - Excel export now generates professional reports matching GTN Engineering standards
+  - Template automatically updates with current date while maintaining original structure
 - July 11, 2025: Implemented comprehensive email notification system for all ticket lifecycle events:
   - Added email notifications for ticket creation, assignment, status updates, and comment additions
   - Notifications sent to multiple recipients (ticket creator, assignee, updater) based on event type
