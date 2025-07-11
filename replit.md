@@ -102,6 +102,13 @@ The GTN Engineering IT Helpdesk System is a comprehensive Flask-based web applic
 
 ## Changelog
 
+- July 11, 2025: Completed migration from Replit Agent to standard Replit environment:
+  - Fixed Excel export functionality to use GTN Engineering official template format
+  - Resolved merged cell handling issue in Excel generation with proper column width adjustment
+  - Updated Super Admin dashboard to show tickets in table format matching user dashboard design
+  - Enhanced tickets management with cleaner table view including User, Assigned To, and action buttons
+  - Successfully integrated user-provided R05 - USER COMPLAINT REGISTER template for professional reporting
+  - All core functionality verified and working properly in standard Replit environment
 - June 29, 2025: Implemented lite UI/UX design improvements:
   - Updated user profile page with clean white background and black text instead of gradient background
   - Created compact, medium-sized profile layout with optimized spacing and smaller elements

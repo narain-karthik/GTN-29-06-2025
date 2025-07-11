@@ -988,13 +988,15 @@ def download_excel_report():
             ws.cell(row=row, column=18, value=f"Status: {ticket.status}")  # Solution / Action taken
             ws.cell(row=row, column=21, value=f"Priority: {ticket.priority}")  # Final Remarks
         
-        # Auto-adjust column widths for better readability
-        for column in ws.columns:
+        # Auto-adjust column widths for better readability - handle merged cells
+        from openpyxl.utils import get_column_letter
+        for col_idx in range(1, ws.max_column + 1):
             max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
+            column_letter = get_column_letter(col_idx)
+            for row in range(1, ws.max_row + 1):
                 try:
-                    if cell.value and len(str(cell.value)) > max_length:
+                    cell = ws.cell(row=row, column=col_idx)
+                    if hasattr(cell, 'value') and cell.value and len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
                 except:
                     pass
