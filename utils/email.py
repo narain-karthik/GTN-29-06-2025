@@ -180,7 +180,7 @@ def send_assignment_email(to_email, ticket_id, assignee_name):
         return False
 
 
-def send_notification_email(to_email, subject, body, ticket_id=None):
+def send_notification_email(to_email, subject, body, ticket_id=None, message_type='general'):
     """Send general notification email using Master Data email settings"""
     try:
         # Get email settings from Master Data
@@ -199,9 +199,219 @@ def send_notification_email(to_email, subject, body, ticket_id=None):
             server.login(email_settings['smtp_username'], email_settings['smtp_password'])
             server.sendmail(email_settings['from_email'], [to_email], msg.as_string())
             
+        # Log successful notification
+        log_ticket_id = extract_ticket_id(ticket_id) if ticket_id else None
+        log_email_notification(to_email, subject, message_type, 'sent', ticket_id=log_ticket_id)
         logging.info(f"Notification email sent successfully to {to_email}")
         return True
         
     except Exception as e:
-        logging.error(f"Failed to send notification email: {e}")
+        error_msg = f"Failed to send notification email: {e}"
+        logging.error(error_msg)
+        log_ticket_id = extract_ticket_id(ticket_id) if ticket_id else None
+        log_email_notification(to_email, subject, message_type, 'failed', error_msg, log_ticket_id)
+        return False
+
+
+def extract_ticket_id(ticket_id):
+    """Extract numeric ticket ID from various formats"""
+    if ticket_id == "TEST":
+        return None
+    elif isinstance(ticket_id, str) and ticket_id.startswith("GTN-"):
+        try:
+            return int(ticket_id.split("-")[1])
+        except (IndexError, ValueError):
+            return None
+    else:
+        return ticket_id
+
+
+def send_ticket_creation_notification(ticket):
+    """Send notification when a ticket is created"""
+    try:
+        # Email to user who created the ticket
+        subject = f"Ticket Created: {ticket.ticket_number}"
+        body = f"""Hello {ticket.user_name},
+
+Your support ticket has been successfully created with the following details:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Category: {ticket.category}
+Priority: {ticket.priority}
+Status: {ticket.status}
+Description: {ticket.description}
+
+We will review your ticket and assign it to the appropriate team member shortly. 
+You will receive email notifications for all updates to your ticket.
+
+Best regards,
+GTN IT Helpdesk Team"""
+        
+        result = send_notification_email(ticket.user.email, subject, body, ticket.ticket_number, 'ticket_created')
+        return result
+        
+    except Exception as e:
+        logging.error(f"Error sending ticket creation notification: {e}")
+        return False
+
+
+def send_ticket_assignment_notification(ticket, assignee, assigner):
+    """Send notifications when a ticket is assigned"""
+    try:
+        results = []
+        
+        # 1. Email to the assignee
+        subject = f"Ticket Assigned: {ticket.ticket_number}"
+        body = f"""Hello {assignee.full_name},
+
+You have been assigned to work on the following ticket:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Category: {ticket.category}
+Priority: {ticket.priority}
+Status: {ticket.status}
+Assigned By: {assigner.full_name}
+Created By: {ticket.user_name}
+
+Description: {ticket.description}
+
+Please review the ticket details and update the status as you work on it.
+
+Best regards,
+GTN IT Helpdesk Team"""
+        
+        result1 = send_notification_email(assignee.email, subject, body, ticket.ticket_number, 'ticket_assigned')
+        results.append(result1)
+        
+        # 2. Email to the ticket creator
+        subject = f"Ticket Update: {ticket.ticket_number} - Assigned"
+        body = f"""Hello {ticket.user_name},
+
+Your ticket has been assigned to a team member:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Status: {ticket.status}
+Assigned To: {assignee.full_name}
+Assigned By: {assigner.full_name}
+
+Our team is now working on your request. You will receive updates as progress is made.
+
+Best regards,
+GTN IT Helpdesk Team"""
+        
+        result2 = send_notification_email(ticket.user.email, subject, body, ticket.ticket_number, 'ticket_updated')
+        results.append(result2)
+        
+        return all(results)
+        
+    except Exception as e:
+        logging.error(f"Error sending ticket assignment notifications: {e}")
+        return False
+
+
+def send_ticket_status_update_notification(ticket, old_status, updated_by):
+    """Send notification when ticket status changes"""
+    try:
+        results = []
+        
+        # 1. Email to ticket creator
+        subject = f"Ticket Update: {ticket.ticket_number} - Status Changed"
+        body = f"""Hello {ticket.user_name},
+
+Your ticket status has been updated:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Previous Status: {old_status}
+Current Status: {ticket.status}
+Updated By: {updated_by.full_name}
+
+{"Your ticket has been resolved! Please review the solution and let us know if you need any further assistance." if ticket.status == 'Resolved' else "We are continuing to work on your request."}
+
+Best regards,
+GTN IT Helpdesk Team"""
+        
+        result1 = send_notification_email(ticket.user.email, subject, body, ticket.ticket_number, 'ticket_updated')
+        results.append(result1)
+        
+        # 2. Email to assignee if different from updater
+        if ticket.assigned_to and ticket.assigned_to != updated_by.id:
+            subject = f"Ticket Update: {ticket.ticket_number} - Status Changed"
+            body = f"""Hello {ticket.assignee.full_name},
+
+A ticket assigned to you has been updated:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Previous Status: {old_status}
+Current Status: {ticket.status}
+Updated By: {updated_by.full_name}
+
+Please review the ticket for any additional actions needed.
+
+Best regards,
+GTN IT Helpdesk Team"""
+            
+            result2 = send_notification_email(ticket.assignee.email, subject, body, ticket.ticket_number, 'ticket_updated')
+            results.append(result2)
+        
+        return all(results)
+        
+    except Exception as e:
+        logging.error(f"Error sending ticket status update notifications: {e}")
+        return False
+
+
+def send_ticket_comment_notification(ticket, comment, commenter):
+    """Send notification when a comment is added to a ticket"""
+    try:
+        results = []
+        
+        # 1. Email to ticket creator (if not the commenter)
+        if ticket.user_id != commenter.id:
+            subject = f"Ticket Update: {ticket.ticket_number} - New Comment"
+            body = f"""Hello {ticket.user_name},
+
+A new comment has been added to your ticket:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Comment By: {commenter.full_name}
+Comment: {comment}
+
+You can view the full ticket details in the portal.
+
+Best regards,
+GTN IT Helpdesk Team"""
+            
+            result1 = send_notification_email(ticket.user.email, subject, body, ticket.ticket_number, 'ticket_comment')
+            results.append(result1)
+        
+        # 2. Email to assignee (if different from commenter and ticket creator)
+        if ticket.assigned_to and ticket.assigned_to != commenter.id and ticket.assigned_to != ticket.user_id:
+            subject = f"Ticket Update: {ticket.ticket_number} - New Comment"
+            body = f"""Hello {ticket.assignee.full_name},
+
+A new comment has been added to a ticket assigned to you:
+
+Ticket Number: {ticket.ticket_number}
+Title: {ticket.title}
+Comment By: {commenter.full_name}
+Comment: {comment}
+
+Please review the comment and respond if necessary.
+
+Best regards,
+GTN IT Helpdesk Team"""
+            
+            result2 = send_notification_email(ticket.assignee.email, subject, body, ticket.ticket_number, 'ticket_comment')
+            results.append(result2)
+        
+        return all(results)
+        
+    except Exception as e:
+        logging.error(f"Error sending ticket comment notifications: {e}")
         return False

@@ -371,7 +371,18 @@ def create_ticket():
         if other_attachments:
             db.session.commit()
 
-        flash(f'Ticket {ticket.ticket_number} created successfully!', 'success')
+        # Send email notification for ticket creation
+        from utils.email import send_ticket_creation_notification
+        try:
+            email_sent = send_ticket_creation_notification(ticket)
+            if email_sent:
+                flash(f'Ticket {ticket.ticket_number} created successfully and confirmation email sent!', 'success')
+            else:
+                flash(f'Ticket {ticket.ticket_number} created successfully but confirmation email failed.', 'warning')
+        except Exception as e:
+            logging.error(f"Error sending ticket creation notification: {e}")
+            flash(f'Ticket {ticket.ticket_number} created successfully but confirmation email failed.', 'warning')
+        
         return redirect(url_for('user_dashboard'))
 
     return render_template('create_ticket.html', form=form)
@@ -415,7 +426,17 @@ def add_comment(ticket_id):
         ticket.updated_at = datetime.utcnow()
         db.session.commit()
         
-        flash('Comment added successfully!', 'success')
+        # Send email notification for comment addition
+        from utils.email import send_ticket_comment_notification
+        try:
+            email_sent = send_ticket_comment_notification(ticket, form.comment.data, user)
+            if email_sent:
+                flash('Comment added successfully and notifications sent!', 'success')
+            else:
+                flash('Comment added successfully but some notifications failed.', 'warning')
+        except Exception as e:
+            logging.error(f"Error sending ticket comment notification: {e}")
+            flash('Comment added successfully but notifications failed.', 'warning')
     
     return redirect(url_for('view_ticket', ticket_id=ticket_id))
 
@@ -460,7 +481,18 @@ def edit_ticket(ticket_id):
         
         db.session.commit()
         
-        flash('Ticket status updated successfully!', 'success')
+        # Send email notification for status update
+        from utils.email import send_ticket_status_update_notification
+        try:
+            email_sent = send_ticket_status_update_notification(ticket, old_status, current_user)
+            if email_sent:
+                flash('Ticket status updated successfully and notifications sent!', 'success')
+            else:
+                flash('Ticket status updated successfully but some notifications failed.', 'warning')
+        except Exception as e:
+            logging.error(f"Error sending ticket status update notification: {e}")
+            flash('Ticket status updated successfully but notifications failed.', 'warning')
+        
         return redirect(url_for('view_ticket', ticket_id=ticket_id))
     
     return render_template('edit_ticket.html', form=form, ticket=ticket, user=current_user)
@@ -485,11 +517,17 @@ def assign_ticket(ticket_id):
 
         assignee = User.query.get(form.assigned_to.data)
 
-        # Send email notification
-        if assignee and assignee.email:
-            send_assignment_email(assignee.email, ticket.id, assignee.full_name)
-
-        flash(f'Ticket assigned to {assignee.full_name}!', 'success')
+        # Send comprehensive email notifications
+        from utils.email import send_ticket_assignment_notification
+        try:
+            email_sent = send_ticket_assignment_notification(ticket, assignee, current_user)
+            if email_sent:
+                flash(f'Ticket assigned to {assignee.full_name} and notifications sent!', 'success')
+            else:
+                flash(f'Ticket assigned to {assignee.full_name} but some notifications failed.', 'warning')
+        except Exception as e:
+            logging.error(f"Error sending assignment notifications: {e}")
+            flash(f'Ticket assigned to {assignee.full_name} but notifications failed.', 'warning')
 
     return redirect(url_for('view_ticket', ticket_id=ticket_id))
 
@@ -669,17 +707,17 @@ def assign_work(ticket_id):
         
         assignee = User.query.get(form.assigned_to.data)
         
-        # Send email notification to assigned user
-        from utils.email import send_assignment_email
+        # Send comprehensive email notifications for assignment
+        from utils.email import send_ticket_assignment_notification
         try:
-            email_sent = send_assignment_email(assignee.email, ticket.ticket_number, assignee.full_name)
+            email_sent = send_ticket_assignment_notification(ticket, assignee, user)
             if email_sent:
-                flash(f'Work assigned to {assignee.full_name} and email notification sent!', 'success')
+                flash(f'Work assigned to {assignee.full_name} and email notifications sent to all parties!', 'success')
             else:
-                flash(f'Work assigned to {assignee.full_name} but email notification failed.', 'warning')
+                flash(f'Work assigned to {assignee.full_name} but some email notifications failed.', 'warning')
         except Exception as e:
             logging.error(f"Error sending assignment email: {e}")
-            flash(f'Work assigned to {assignee.full_name} but email notification failed.', 'warning')
+            flash(f'Work assigned to {assignee.full_name} but email notifications failed.', 'warning')
         
         return redirect(url_for('super_admin_dashboard'))
     
@@ -845,19 +883,19 @@ def edit_assignment(ticket_id):
             db.session.commit()
             assignee_name = User.query.get(assigned_to).full_name if assigned_to else 'Unassigned'
             
-            # Send email notification if assigned to someone
+            # Send comprehensive email notifications if assigned to someone
             if assigned_to:
-                from utils.email import send_assignment_email
+                from utils.email import send_ticket_assignment_notification
                 assignee = User.query.get(assigned_to)
                 try:
-                    email_sent = send_assignment_email(assignee.email, ticket.ticket_number, assignee.full_name)
+                    email_sent = send_ticket_assignment_notification(ticket, assignee, current_user)
                     if email_sent:
-                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} and email notification sent!', 'success')
+                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} and email notifications sent to all parties!', 'success')
                     else:
-                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but email notification failed.', 'warning')
+                        flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but some email notifications failed.', 'warning')
                 except Exception as e:
                     logging.error(f"Error sending assignment email: {e}")
-                    flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but email notification failed.', 'warning')
+                    flash(f'Ticket {ticket.ticket_number} assigned to {assignee_name} but email notifications failed.', 'warning')
             else:
                 flash(f'Ticket {ticket.ticket_number} has been unassigned.', 'success')
                 
