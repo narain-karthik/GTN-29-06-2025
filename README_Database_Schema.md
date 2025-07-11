@@ -4,7 +4,20 @@ Comprehensive documentation for the GTN Engineering IT Helpdesk System database 
 
 ## Overview
 
-The system uses a modern relational database architecture with eleven core tables supporting user management, ticket lifecycle, collaborative comments, file attachments, comprehensive master data management, and email notification logging. Designed for PostgreSQL primary deployment with IST timezone support and optimized for Replit environment.
+The system uses a modern relational database architecture with **11 core tables** supporting user management, ticket lifecycle, collaborative comments, file attachments, comprehensive master data management, and email notification logging. Designed for PostgreSQL primary deployment with IST timezone support and optimized for Replit environment.
+
+**Database Tables:**
+1. **users** - User authentication and profile management
+2. **tickets** - Core ticket lifecycle management
+3. **ticket_comments** - Collaborative comment system
+4. **attachments** - File attachment management
+5. **master_categories** - Ticket category definitions
+6. **master_priorities** - Priority level configuration
+7. **master_statuses** - Status workflow definitions
+8. **email_settings** - SMTP configuration
+9. **timezone_settings** - System timezone configuration
+10. **backup_settings** - Database backup configuration
+11. **email_notification_logs** - Email notification tracking
 
 ## Database Architecture
 
@@ -74,10 +87,10 @@ CREATE TABLE tickets (
     category VARCHAR(50) NOT NULL,
     priority VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Open',
-    user_name VARCHAR(100) NOT NULL,
+    user_name VARCHAR(100) NOT NULL, -- Full name captured at creation
     user_ip_address VARCHAR(45),
     user_system_name VARCHAR(100),
-    image_filename VARCHAR(255),
+    image_filename VARCHAR(255), -- For file attachments
     user_id INTEGER REFERENCES users(id) NOT NULL,
     assigned_to INTEGER REFERENCES users(id),
     assigned_by INTEGER REFERENCES users(id),

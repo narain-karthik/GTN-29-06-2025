@@ -16,9 +16,22 @@ The Master Data Management system provides Super Admins with centralized control
 
 **Purpose**: Define ticket categories to classify support requests
 
-**Default Categories**:
+**Database Table**: `master_categories`
+**Current Categories in Database**:
 - Hardware (computer issues, equipment problems)
 - Software (application issues, system software)
+
+**Database Structure**:
+```sql
+CREATE TABLE master_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 **How to Manage**:
 1. Click "Manage" button in Categories section
@@ -41,11 +54,26 @@ The Master Data Management system provides Super Admins with centralized control
 
 **Purpose**: Set ticket priority levels with visual indicators
 
-**Standard Priority Levels**:
+**Database Table**: `master_priorities`
+**Current Priority Levels in Database**:
 1. **Low** (Level 1) - Non-urgent issues
 2. **Medium** (Level 2) - Standard business issues  
 3. **High** (Level 3) - Important business impact
 4. **Critical** (Level 4) - System down, urgent
+
+**Database Structure**:
+```sql
+CREATE TABLE master_priorities (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    level INTEGER NOT NULL, -- 1=Low, 2=Medium, 3=High, 4=Critical
+    color_code VARCHAR(7), -- Hex color for UI
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 **How to Manage**:
 1. Click "Manage" button in Priority Levels section
@@ -69,10 +97,106 @@ The Master Data Management system provides Super Admins with centralized control
 
 **Purpose**: Track ticket progression through workflow stages
 
-**Standard Status Types**:
+**Database Table**: `master_statuses`
+**Current Status Types in Database**:
 - **Open** - New tickets awaiting review
 - **In Progress** - Tickets being actively worked
 - **Resolved** - Issues fixed, awaiting confirmation
+- **Closed** - Tickets completed and closed
+
+### 4. Email Settings Management 📧
+
+**Purpose**: Configure SMTP settings for automated email notifications
+
+**Database Table**: `email_settings`
+**Database Structure**:
+```sql
+CREATE TABLE email_settings (
+    id SERIAL PRIMARY KEY,
+    smtp_server VARCHAR(100) NOT NULL DEFAULT 'smtp.gmail.com',
+    smtp_port INTEGER NOT NULL DEFAULT 587,
+    smtp_username VARCHAR(100) NOT NULL,
+    smtp_password VARCHAR(200) NOT NULL,
+    use_tls BOOLEAN DEFAULT TRUE,
+    from_email VARCHAR(100),
+    from_name VARCHAR(100) DEFAULT 'GTN IT Helpdesk',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 5. Timezone Settings Management 🌍
+
+**Purpose**: Configure system-wide timezone settings
+
+**Database Table**: `timezone_settings`
+**Default Setting**: Asia/Kolkata (IST)
+**Database Structure**:
+```sql
+CREATE TABLE timezone_settings (
+    id SERIAL PRIMARY KEY,
+    timezone_name VARCHAR(50) NOT NULL DEFAULT 'Asia/Kolkata',
+    display_name VARCHAR(100) NOT NULL DEFAULT 'Indian Standard Time (IST)',
+    utc_offset VARCHAR(10) NOT NULL DEFAULT '+05:30',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 6. Backup Settings Management 💾
+
+**Purpose**: Configure database backup scheduling and management
+
+**Database Table**: `backup_settings`
+**Database Structure**:
+```sql
+CREATE TABLE backup_settings (
+    id SERIAL PRIMARY KEY,
+    backup_frequency VARCHAR(20) NOT NULL DEFAULT 'daily',
+    backup_time TIME NOT NULL DEFAULT '02:00:00',
+    backup_location VARCHAR(200) DEFAULT '/backups',
+    max_backups INTEGER NOT NULL DEFAULT 30,
+    compress_backups BOOLEAN DEFAULT TRUE,
+    include_attachments BOOLEAN DEFAULT TRUE,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    notification_email VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 7. Email Notification Logs 📝
+
+**Purpose**: Track all email notifications sent by the system
+
+**Database Table**: `email_notification_logs`
+**Database Structure**:
+```sql
+CREATE TABLE email_notification_logs (
+    id SERIAL PRIMARY KEY,
+    to_email VARCHAR(100) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    message_type VARCHAR(50) NOT NULL, -- 'ticket_created', 'ticket_assigned', 'ticket_updated'
+    status VARCHAR(20) NOT NULL, -- 'sent', 'failed'
+    error_message TEXT,
+    ticket_id INTEGER REFERENCES tickets(id),
+    user_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+CREATE TABLE master_statuses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    color_code VARCHAR(7), -- Hex color for UI
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 - **Closed** - Completed tickets
 
 **How to Manage**:

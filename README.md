@@ -44,7 +44,7 @@ A comprehensive Flask-based IT helpdesk management system with modern UI/UX desi
 
 ## 🗄️ Database Schema
 
-### **Core Tables**
+### **Core Tables** (11 Tables Total)
 
 #### **Users Table**
 ```sql
@@ -73,6 +73,147 @@ CREATE TABLE tickets (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     category VARCHAR(50) NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Open',
+    user_name VARCHAR(100) NOT NULL, -- Full name captured at creation
+    user_ip_address VARCHAR(45),
+    user_system_name VARCHAR(100),
+    image_filename VARCHAR(255), -- For file attachments
+    user_id INTEGER REFERENCES users(id) NOT NULL,
+    assigned_to INTEGER REFERENCES users(id),
+    assigned_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP
+);
+```
+
+#### **Ticket Comments Table**
+```sql
+CREATE TABLE ticket_comments (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) NOT NULL,
+    user_id INTEGER REFERENCES users(id) NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Attachments Table**
+```sql
+CREATE TABLE attachments (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### **Master Data Tables**
+
+#### **Master Categories Table**
+```sql
+CREATE TABLE master_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Master Priorities Table**
+```sql
+CREATE TABLE master_priorities (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    level INTEGER NOT NULL, -- 1=Low, 2=Medium, 3=High, 4=Critical
+    color_code VARCHAR(7), -- Hex color for UI
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Master Statuses Table**
+```sql
+CREATE TABLE master_statuses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(200),
+    color_code VARCHAR(7), -- Hex color for UI
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### **System Configuration Tables**
+
+#### **Email Settings Table**
+```sql
+CREATE TABLE email_settings (
+    id SERIAL PRIMARY KEY,
+    smtp_server VARCHAR(100) NOT NULL DEFAULT 'smtp.gmail.com',
+    smtp_port INTEGER NOT NULL DEFAULT 587,
+    smtp_username VARCHAR(100) NOT NULL,
+    smtp_password VARCHAR(200) NOT NULL,
+    use_tls BOOLEAN DEFAULT TRUE,
+    from_email VARCHAR(100),
+    from_name VARCHAR(100) DEFAULT 'GTN IT Helpdesk',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Timezone Settings Table**
+```sql
+CREATE TABLE timezone_settings (
+    id SERIAL PRIMARY KEY,
+    timezone_name VARCHAR(50) NOT NULL DEFAULT 'Asia/Kolkata',
+    display_name VARCHAR(100) NOT NULL DEFAULT 'Indian Standard Time (IST)',
+    utc_offset VARCHAR(10) NOT NULL DEFAULT '+05:30',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Backup Settings Table**
+```sql
+CREATE TABLE backup_settings (
+    id SERIAL PRIMARY KEY,
+    backup_frequency VARCHAR(20) NOT NULL DEFAULT 'daily',
+    backup_time TIME NOT NULL DEFAULT '02:00:00',
+    backup_location VARCHAR(200) DEFAULT '/backups',
+    max_backups INTEGER NOT NULL DEFAULT 30,
+    compress_backups BOOLEAN DEFAULT TRUE,
+    include_attachments BOOLEAN DEFAULT TRUE,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    notification_email VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **Email Notification Logs Table**
+```sql
+CREATE TABLE email_notification_logs (
+    id SERIAL PRIMARY KEY,
+    to_email VARCHAR(100) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    message_type VARCHAR(50) NOT NULL, -- 'ticket_created', 'ticket_assigned', 'ticket_updated'
+    status VARCHAR(20) NOT NULL, -- 'sent', 'failed'
+    error_message TEXT,
+    ticket_id INTEGER REFERENCES tickets(id),
+    user_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
     priority VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Open',
     user_name VARCHAR(100) NOT NULL,
