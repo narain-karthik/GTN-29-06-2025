@@ -5,7 +5,7 @@ import logging
 
 
 def get_email_settings():
-    """Get email settings from Master Data or return defaults"""
+    """Get email settings from Master Data"""
     try:
         from models import EmailSettings
         settings = EmailSettings.query.filter_by(is_active=True).first()
@@ -21,29 +21,11 @@ def get_email_settings():
                 'from_name': settings.from_name or 'GTN IT Helpdesk'
             }
         else:
-            # Fallback to hardcoded values if no settings found
-            logging.warning("No active email settings found in Master Data, using fallback values")
-            return {
-                'smtp_server': 'smtp.gmail.com',
-                'smtp_port': 587,
-                'smtp_username': 'narainjkans@gmail.com',
-                'smtp_password': 'hefh vudq kkly wfsd',
-                'use_tls': True,
-                'from_email': 'narainjkans@gmail.com',
-                'from_name': 'GTN IT Helpdesk'
-            }
+            logging.error("No active email settings found in Master Data. Please configure email settings in Master Data.")
+            return None
     except Exception as e:
         logging.error(f"Error getting email settings: {e}")
-        # Fallback to hardcoded values on error
-        return {
-            'smtp_server': 'smtp.gmail.com',
-            'smtp_port': 587,
-            'smtp_username': 'narainjkans@gmail.com',
-            'smtp_password': 'hefh vudq kkly wfsd',
-            'use_tls': True,
-            'from_email': 'narainjkans@gmail.com',
-            'from_name': 'GTN IT Helpdesk'
-        }
+        return None
 
 
 def log_email_notification(to_email, subject, message_type, status, error_message=None, ticket_id=None, user_id=None):
