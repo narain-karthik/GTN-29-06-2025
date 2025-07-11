@@ -949,52 +949,46 @@ def download_excel_report():
 
         tickets = query.all()
 
-        # --- EXCEL GENERATION ---
-        wb = openpyxl.Workbook()
+        # --- EXCEL GENERATION USING GTN ENGINEERING TEMPLATE ---
+        # Load the GTN Engineering template
+        template_path = 'attached_assets/R05 - USER COMPLAINT REGISTER_1752208440954.xlsx'
+        wb = openpyxl.load_workbook(template_path)
         ws = wb.active
-        ws.title = "Tickets Report"
-        headers = [
-            'Ticket ID', 'Title', 'Description', 'Category', 'Priority', 'Status',
-            'Created By', 'User Email', 'User Department', 'System Name', 'IP Address',
-            'Assigned To', 'Assigned By', 'Created Date', 'Updated Date', 'Resolved Date'
-        ]
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_alignment = Alignment(horizontal="center", vertical="center")
-
-        # Add headers to worksheet
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-
-        # Add ticket data
-        for row, ticket in enumerate(tickets, 2):
+        ws.title = "R05 C"
+        
+        # Preserve the template structure - update the date field
+        current_date = datetime.now().strftime('%d.%m.%Y')
+        ws.cell(row=2, column=21, value=current_date)  # Update date in the template
+        
+        # Template headers are in row 3 - mapping to helpdesk data:
+        # SNo, Dept, Issue, Issue Type, (empty cols), Raised By, Originating Date, Mode of communication, (empty), 
+        # Issue Cleared By, Issue clearance date, Reason of the issue, (empty cols), Solution / Action taken, (empty cols), Final Remarks
+        
+        # Add ticket data starting from row 4 (template rows 4+ are for data)
+        data_start_row = 4
+        for idx, ticket in enumerate(tickets, 1):
+            row = data_start_row + idx - 1
+            
+            # Map helpdesk data to GTN template columns
             assignee_name = ticket.assignee.full_name if hasattr(ticket, 'assignee') and ticket.assignee else 'Unassigned'
-            assigner_name = ticket.assigner.full_name if hasattr(ticket, 'assigner') and ticket.assigner else 'N/A'
-            data = [
-                ticket.ticket_number,
-                ticket.title,
-                ticket.description,
-                ticket.category,
-                ticket.priority,
-                ticket.status,
-                getattr(ticket, 'user_name', ticket.user.full_name if hasattr(ticket.user, 'full_name') else 'N/A'),
-                ticket.user.email,
-                getattr(ticket.user, 'department', 'N/A') or 'N/A',
-                getattr(ticket, 'user_system_name', 'N/A') or 'N/A',
-                getattr(ticket, 'user_ip_address', 'N/A') or 'N/A',
-                assignee_name,
-                assigner_name,
-                utc_to_ist(ticket.created_at).strftime('%Y-%m-%d %H:%M:%S') if ticket.created_at else 'N/A',
-                utc_to_ist(ticket.updated_at).strftime('%Y-%m-%d %H:%M:%S') if ticket.updated_at else 'N/A',
-                utc_to_ist(ticket.resolved_at).strftime('%Y-%m-%d %H:%M:%S') if ticket.resolved_at else 'N/A'
-            ]
-            for col, value in enumerate(data, 1):
-                ws.cell(row=row, column=col, value=value)
-
-        # Auto-adjust column widths
+            user_name = getattr(ticket, 'user_name', ticket.user.full_name if hasattr(ticket.user, 'full_name') else 'N/A')
+            user_dept = getattr(ticket.user, 'department', 'N/A') or 'N/A'
+            
+            # Fill the template columns with ticket data
+            ws.cell(row=row, column=1, value=idx)  # SNo
+            ws.cell(row=row, column=2, value=user_dept)  # Dept
+            ws.cell(row=row, column=3, value=ticket.title)  # Issue
+            ws.cell(row=row, column=4, value=ticket.category)  # Issue Type
+            ws.cell(row=row, column=8, value=user_name)  # Raised By
+            ws.cell(row=row, column=9, value=utc_to_ist(ticket.created_at).strftime('%d.%m.%Y') if ticket.created_at else 'N/A')  # Originating Date
+            ws.cell(row=row, column=10, value='Online Portal')  # Mode of communication
+            ws.cell(row=row, column=12, value=assignee_name)  # Issue Cleared By
+            ws.cell(row=row, column=13, value=utc_to_ist(ticket.resolved_at).strftime('%d.%m.%Y') if ticket.resolved_at else 'Pending')  # Issue clearance date
+            ws.cell(row=row, column=14, value=ticket.description)  # Reason of the issue
+            ws.cell(row=row, column=18, value=f"Status: {ticket.status}")  # Solution / Action taken
+            ws.cell(row=row, column=21, value=f"Priority: {ticket.priority}")  # Final Remarks
+        
+        # Auto-adjust column widths for better readability
         for column in ws.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -1012,9 +1006,9 @@ def download_excel_report():
         wb.save(output)
         output.seek(0)
 
-        # Generate filename with timestamp
+        # Generate filename with timestamp matching GTN template format
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'GTN_Helpdesk_Report_{timestamp}.xlsx'
+        filename = f'R05 - USER COMPLAINT REGISTER_{timestamp}.xlsx'
 
         # Create response
         response = make_response(output.getvalue())
