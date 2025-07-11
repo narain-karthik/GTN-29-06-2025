@@ -102,6 +102,13 @@ The GTN Engineering IT Helpdesk System is a comprehensive Flask-based web applic
 
 ## Changelog
 
+- July 11, 2025: Implemented comprehensive email notification system for all ticket lifecycle events:
+  - Added email notifications for ticket creation, assignment, status updates, and comment additions
+  - Notifications sent to multiple recipients (ticket creator, assignee, updater) based on event type
+  - Enhanced notification content with detailed ticket information and personalized messages
+  - Integrated new notification functions into all ticket routes with proper error handling
+  - Email system uses Master Data settings with comprehensive logging and fallback protection
+  - All notifications tracked in EmailNotificationLog table for monitoring and troubleshooting
 - July 11, 2025: Completed migration from Replit Agent to standard Replit environment:
   - Fixed Excel export functionality to use GTN Engineering official template format
   - Resolved merged cell handling issue in Excel generation with proper column width adjustment
