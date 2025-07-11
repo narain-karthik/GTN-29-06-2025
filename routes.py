@@ -14,7 +14,7 @@ import os
 import socket
 import platform
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import io
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx'}
@@ -994,12 +994,40 @@ def download_excel_report():
         ws = wb.active
         ws.title = "R05 C"
         
-        # Preserve the template structure - update the date field
-        current_date = datetime.now().strftime('%d.%m.%Y')
-        ws.cell(row=2, column=21, value=current_date)  # Update date in the template
+        # Insert columns at the beginning for logo space (A, B, C)
+        ws.insert_cols(1, 3)
         
-        # Template headers are in row 3 - mapping to helpdesk data:
-        # SNo, Dept, Issue, Issue Type, (empty cols), Raised By, Originating Date, Mode of communication, (empty), 
+        # Preserve the template structure - update the date field (shifted by 3 columns)
+        current_date = datetime.now().strftime('%d.%m.%Y')
+        ws.cell(row=2, column=24, value=current_date)  # Update date in the template (was column 21)
+        
+        # Add logo space formatting
+        # Merge cells for logo area (A1:C8) 
+        ws.merge_cells('A1:C8')
+        logo_cell = ws['A1']
+        logo_cell.value = "LOGO SPACE\n(Insert Company Logo Here)"
+        logo_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        logo_cell.font = Font(bold=True, size=11)
+        logo_cell.fill = PatternFill(start_color="E6E6E6", end_color="E6E6E6", fill_type="solid")
+        
+        # Add border to logo area
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        for row in range(1, 9):
+            for col in range(1, 4):
+                ws.cell(row=row, column=col).border = thin_border
+        
+        # Set column widths for logo space
+        ws.column_dimensions['A'].width = 8
+        ws.column_dimensions['B'].width = 8
+        ws.column_dimensions['C'].width = 8
+        
+        # Template headers are in row 3 - mapping to helpdesk data (shifted by 3 columns for logo space):
+        # Logo Space (A-C), SNo, Dept, Issue, Issue Type, (empty cols), Raised By, Originating Date, Mode of communication, (empty), 
         # Issue Cleared By, Issue clearance date, Reason of the issue, (empty cols), Solution / Action taken, (empty cols), Final Remarks
         
         # Add ticket data starting from row 4 (template rows 4+ are for data)
@@ -1007,28 +1035,28 @@ def download_excel_report():
         for idx, ticket in enumerate(tickets, 1):
             row = data_start_row + idx - 1
             
-            # Map helpdesk data to GTN template columns
+            # Map helpdesk data to GTN template columns (shifted by 3 columns)
             assignee_name = ticket.assignee.full_name if hasattr(ticket, 'assignee') and ticket.assignee else 'Unassigned'
             user_name = getattr(ticket, 'user_name', ticket.user.full_name if hasattr(ticket.user, 'full_name') else 'N/A')
             user_dept = getattr(ticket.user, 'department', 'N/A') or 'N/A'
             
-            # Fill the template columns with ticket data
-            ws.cell(row=row, column=1, value=idx)  # SNo
-            ws.cell(row=row, column=2, value=user_dept)  # Dept
-            ws.cell(row=row, column=3, value=ticket.title)  # Issue
-            ws.cell(row=row, column=4, value=ticket.category)  # Issue Type
-            ws.cell(row=row, column=8, value=user_name)  # Raised By
-            ws.cell(row=row, column=9, value=utc_to_ist(ticket.created_at).strftime('%d.%m.%Y') if ticket.created_at else 'N/A')  # Originating Date
-            ws.cell(row=row, column=10, value='Online Portal')  # Mode of communication
-            ws.cell(row=row, column=12, value=assignee_name)  # Issue Cleared By
-            ws.cell(row=row, column=13, value=utc_to_ist(ticket.resolved_at).strftime('%d.%m.%Y') if ticket.resolved_at else 'Pending')  # Issue clearance date
-            ws.cell(row=row, column=14, value=ticket.description)  # Reason of the issue
-            ws.cell(row=row, column=18, value=f"Status: {ticket.status}")  # Solution / Action taken
-            ws.cell(row=row, column=21, value=f"Priority: {ticket.priority}")  # Final Remarks
+            # Fill the template columns with ticket data (all columns shifted by 3 for logo space)
+            ws.cell(row=row, column=4, value=idx)  # SNo (was column 1)
+            ws.cell(row=row, column=5, value=user_dept)  # Dept (was column 2)
+            ws.cell(row=row, column=6, value=ticket.title)  # Issue (was column 3)
+            ws.cell(row=row, column=7, value=ticket.category)  # Issue Type (was column 4)
+            ws.cell(row=row, column=11, value=user_name)  # Raised By (was column 8)
+            ws.cell(row=row, column=12, value=utc_to_ist(ticket.created_at).strftime('%d.%m.%Y') if ticket.created_at else 'N/A')  # Originating Date (was column 9)
+            ws.cell(row=row, column=13, value='Online Portal')  # Mode of communication (was column 10)
+            ws.cell(row=row, column=15, value=assignee_name)  # Issue Cleared By (was column 12)
+            ws.cell(row=row, column=16, value=utc_to_ist(ticket.resolved_at).strftime('%d.%m.%Y') if ticket.resolved_at else 'Pending')  # Issue clearance date (was column 13)
+            ws.cell(row=row, column=17, value=ticket.description)  # Reason of the issue (was column 14)
+            ws.cell(row=row, column=21, value=f"Status: {ticket.status}")  # Solution / Action taken (was column 18)
+            ws.cell(row=row, column=24, value=f"Priority: {ticket.priority}")  # Final Remarks (was column 21)
         
-        # Auto-adjust column widths for better readability - handle merged cells
+        # Auto-adjust column widths for better readability - skip logo space columns (A-C)
         from openpyxl.utils import get_column_letter
-        for col_idx in range(1, ws.max_column + 1):
+        for col_idx in range(4, ws.max_column + 1):  # Start from column 4 (after logo space)
             max_length = 0
             column_letter = get_column_letter(col_idx)
             for row in range(1, ws.max_row + 1):
